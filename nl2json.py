@@ -275,19 +275,35 @@ def build_generic(intent: Dict[str, Any], text: str) -> Dict[str, Any]:
 def nl2json(text: str) -> Tuple[Dict[str, Any], List[Dict[str, Any]], str]:
     """
     主入口：自然语言 → (标准化JSON, 澄清问题列表, 阶段说明)。
+    优先级：LLM（DeepSeek，需 DEEPSEEK_API_KEY）→ 规则模板 → 通用解析。
     返回的 JSON 是标准形式（与 adapters 输出同构），可直接送入 preprocess → JCPN。
     """
+    import os
     intent = detect_intent(text)
     questions = clarify_questions(text)
-    if intent["template_id"]:
-        wf = build_from_template(intent["template_id"], text)
-        stage = "template"
-    else:
-        wf = build_generic(intent, text)
-        stage = "generic"
-    # 通用 JSON 结构头
+
+    # 1) LLM 优先（如果配了 key）
+    api_key = os.environ.get("DEEPSEEK_API_KEY") or os.environ.get("OPENAI_API_KEY")
+    wf: Optional[Dict[str, Any]] = None
+    stage = "rule"
+    if api_key:
+        try:
+            wf = llm_json(text)
+            stage = "llm"
+        except Exception as e:  # noqa: BLE001
+            # LLM 失败，回退规则引擎；把原因记在 stage 里方便调试
+            stage = f"llm_fallback({type(e).__name__})"
+
+    # 2) 规则引擎兜底
+    if wf is None:
+        if intent["template_id"]:
+            wf = build_from_template(intent["template_id"], text)
+            stage = stage if "fallback" in stage else "template"
+        else:
+            wf = build_generic(intent, text)
+            stage = stage if "fallback" in stage else "generic"
+
     wf.setdefault("version", "1.0")
-    wf.setdefault("source", "nl2json_rule_engine")
     wf.setdefault("nodes", [])
     wf.setdefault("edges", [])
     return wf, questions, stage
@@ -297,19 +313,35 @@ def nl2json(text: str) -> Tuple[Dict[str, Any], List[Dict[str, Any]], str]:
 # 可选 LLM 通道（配置 OPENAI_API_KEY / 自定义 endpoint 后启用）
 # ---------------------------------------------------------------------------
 def llm_json(text: str, api_key: Optional[str] = None,
-             endpoint: Optional[str] = None, model: str = "gpt-4o-mini") -> Dict[str, Any]:
-    """调用外部 LLM 生成 JSON；失败时抛异常，由调用方回退规则引擎。"""
+             endpoint: Optional[str] = None,
+             model: Optional[str] = None) -> Dict[str, Any]:
+    """调用外部 LLM 生成 JSON；失败时抛异常，由调用方回退规则引擎。
+
+    默认走 DeepSeek（OpenAI 兼容协议），从环境变量读配置：
+      DEEPSEEK_API_KEY   必填
+      DEEPSEEK_BASE_URL  默认 https://api.deepseek.com/v1
+      DEEPSEEK_MODEL     默认 deepseek-chat（V3）
+    """
+    import os
+    api_key = api_key or os.environ.get("DEEPSEEK_API_KEY") or os.environ.get("OPENAI_API_KEY")
+    endpoint = endpoint or os.environ.get("DEEPSEEK_BASE_URL") or "https://api.deepseek.com/v1"
+    model = model or os.environ.get("DEEPSEEK_MODEL") or "deepseek-chat"
     if not api_key:
-        raise RuntimeError("LLM channel disabled (no api key)")
+        raise RuntimeError("no_api_key")
     import urllib.request
-    url = endpoint or "https://api.openai.com/v1/chat/completions"
+    url = endpoint.rstrip("/") + "/chat/completions"
     system = (
         "You are a workflow compiler. Convert the user's natural-language workflow "
-        "description into a normalized JSON workflow. Output ONLY JSON with keys "
-        "{name, nodes, edges}. node.type ∈ {task,message,if,while}; message nodes have "
-        "sender and pairing; if nodes have condition and then/else (else optional); "
-        "while nodes have condition and exit (bool) and optional body; edges are "
-        "{from,to,branch?} where branch ∈ {true,false,exit}."
+        "description into a normalized JSON workflow. Output ONLY a JSON object with keys "
+        "{name, nodes, edges}. node.type ∈ {task,message,if,while}. "
+        "task node: {id,type,name}. "
+        "message node: {id,type,name,sender,pairing:'send_only',platform:'internal'}. "
+        "if node: {id,type,name,condition,then:{id,type,name},else:{id,type,name}} (else optional). "
+        "while node: {id,type,name,condition,exit:true,body:{id,type,name}}. "
+        "edges: [{from,to,branch?}] where branch ∈ {true,false,exit}. "
+        "Use ids n1,n2,... sequentially. Build a coherent flow from the user's description; "
+        "do NOT copy any template. If the user's description is vague, still produce a "
+        "reasonable generic workflow and the clarification questions can be handled separately."
     )
     body = json.dumps({
         "model": model,
@@ -320,17 +352,18 @@ def llm_json(text: str, api_key: Optional[str] = None,
     req = urllib.request.Request(url, data=body, method="POST",
                                  headers={"Content-Type": "application/json",
                                           "Authorization": f"Bearer {api_key}"})
-    with urllib.request.urlopen(req, timeout=30) as resp:
+    with urllib.request.urlopen(req, timeout=45) as resp:
         data = json.loads(resp.read().decode("utf-8"))
     content = data["choices"][0]["message"]["content"]
-    # 提取 JSON（容忍 ```json 代码块包裹）
     m = re.search(r"\{.*\}", content, re.S)
     if not m:
-        raise ValueError("LLM returned no JSON")
+        raise ValueError("llm_no_json")
     wf = json.loads(m.group(0))
+    wf.setdefault("name", "LLM-generated workflow")
     wf.setdefault("nodes", [])
     wf.setdefault("edges", [])
     wf["source"] = "nl2json_llm"
+    wf["llm_model"] = model
     return wf
 
 
