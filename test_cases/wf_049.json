@@ -1,0 +1,113 @@
+{
+  "id": "wf_049",
+  "name": "long linear pipeline 12",
+  "platform": "n8n",
+  "nodes": [
+    {
+      "id": "f0",
+      "type": "task",
+      "name": "stage 0"
+    },
+    {
+      "id": "f1",
+      "type": "task",
+      "name": "stage 1"
+    },
+    {
+      "id": "f2",
+      "type": "task",
+      "name": "stage 2"
+    },
+    {
+      "id": "f3",
+      "type": "task",
+      "name": "stage 3"
+    },
+    {
+      "id": "f4",
+      "type": "task",
+      "name": "stage 4"
+    },
+    {
+      "id": "f5",
+      "type": "task",
+      "name": "stage 5"
+    },
+    {
+      "id": "f6",
+      "type": "task",
+      "name": "stage 6"
+    },
+    {
+      "id": "f7",
+      "type": "task",
+      "name": "stage 7"
+    },
+    {
+      "id": "f8",
+      "type": "task",
+      "name": "stage 8"
+    },
+    {
+      "id": "f9",
+      "type": "task",
+      "name": "stage 9"
+    },
+    {
+      "id": "f10",
+      "type": "task",
+      "name": "stage 10"
+    },
+    {
+      "id": "f11",
+      "type": "task",
+      "name": "stage 11"
+    }
+  ],
+  "edges": [
+    {
+      "from": "f0",
+      "to": "f1"
+    },
+    {
+      "from": "f1",
+      "to": "f2"
+    },
+    {
+      "from": "f2",
+      "to": "f3"
+    },
+    {
+      "from": "f3",
+      "to": "f4"
+    },
+    {
+      "from": "f4",
+      "to": "f5"
+    },
+    {
+      "from": "f5",
+      "to": "f6"
+    },
+    {
+      "from": "f6",
+      "to": "f7"
+    },
+    {
+      "from": "f7",
+      "to": "f8"
+    },
+    {
+      "from": "f8",
+      "to": "f9"
+    },
+    {
+      "from": "f9",
+      "to": "f10"
+    },
+    {
+      "from": "f10",
+      "to": "f11"
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "id": "wf_013",
+  "name": "workflow with isolated node #13",
+  "platform": "dify",
+  "nodes": [
+    {
+      "id": "a13_0",
+      "type": "task",
+      "name": "start task"
+    },
+    {
+      "id": "a13_1",
+      "type": "task",
+      "name": "fetch record"
+    },
+    {
+      "id": "a13_2",
+      "type": "task",
+      "name": "validate fields"
+    },
+    {
+      "id": "a13_3",
+      "type": "task",
+      "name": "update state"
+    },
+    {
+      "id": "a13_4",
+      "type": "task",
+      "name": "orphaned activity"
+    }
+  ],
+  "edges": [
+    {
+      "from": "a13_0",
+      "to": "a13_1"
+    },
+    {
+      "from": "a13_1",
+      "to": "a13_2"
+    },
+    {
+      "from": "a13_2",
+      "to": "a13_3"
+    }
+  ]
+}

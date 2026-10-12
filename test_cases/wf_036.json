@@ -1,0 +1,58 @@
+{
+  "id": "wf_036",
+  "name": "two message interactions",
+  "platform": "n8n",
+  "nodes": [
+    {
+      "id": "k0",
+      "type": "task",
+      "name": "start"
+    },
+    {
+      "id": "k1",
+      "type": "message",
+      "name": "call external api",
+      "sender": "workflow",
+      "receiver": "api",
+      "platform": "n8n",
+      "pairing": "paired"
+    },
+    {
+      "id": "k2",
+      "type": "task",
+      "name": "handle response"
+    },
+    {
+      "id": "k3",
+      "type": "message",
+      "name": "notify user",
+      "sender": "bot",
+      "receiver": "user",
+      "platform": "dify",
+      "pairing": "send_only"
+    },
+    {
+      "id": "k4",
+      "type": "task",
+      "name": "done"
+    }
+  ],
+  "edges": [
+    {
+      "from": "k0",
+      "to": "k1"
+    },
+    {
+      "from": "k1",
+      "to": "k2"
+    },
+    {
+      "from": "k2",
+      "to": "k3"
+    },
+    {
+      "from": "k3",
+      "to": "k4"
+    }
+  ]
+}

@@ -1,0 +1,107 @@
+{
+  "name": "02 — Slack → LoomCycle → Slack",
+  "nodes": [
+    {
+      "id": "node-slack-trigger",
+      "name": "Slack: On Message",
+      "type": "n8n-nodes-base.slackTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {
+        "trigger": [
+          "message"
+        ],
+        "channelId": "={{ $env.SLACK_CHANNEL_ID }}",
+        "watchWorkspace": false
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "slack-creds",
+          "name": "Slack API"
+        }
+      }
+    },
+    {
+      "id": "node-loomcycle-run",
+      "name": "LoomCycle: Respond",
+      "type": "@loomcycle/n8n-nodes-loomcycle.loomCycleRun",
+      "typeVersion": 1,
+      "position": [
+        500,
+        300
+      ],
+      "parameters": {
+        "resource": "run",
+        "operation": "spawn",
+        "agent": "slack-assistant",
+        "prompt": "={{ $json.text }}",
+        "treatPromptAsUntrusted": true,
+        "additionalFields": {
+          "sessionId": "=slack-{{ $json.channel }}-{{ $json.user }}"
+        }
+      },
+      "credentials": {
+        "loomCycleApi": {
+          "id": "loomcycle-creds",
+          "name": "LoomCycle API"
+        }
+      }
+    },
+    {
+      "id": "node-slack-post",
+      "name": "Slack: Post Reply",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        800,
+        300
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": "={{ $node[\"Slack: On Message\"].json.channel }}",
+        "text": "={{ $json.finalText }}"
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "slack-creds",
+          "name": "Slack API"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Slack: On Message": {
+      "main": [
+        [
+          {
+            "node": "LoomCycle: Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LoomCycle: Respond": {
+      "main": [
+        [
+          {
+            "node": "Slack: Post Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

@@ -1,0 +1,159 @@
+{
+  "name": "01 — Multi-Agent Research (LoomCycle)",
+  "nodes": [
+    {
+      "id": "node-manual-1",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "node-set-query",
+      "name": "Set Query",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        400,
+        300
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "q1",
+              "name": "query",
+              "value": "Latest research on agentic systems composition patterns",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node-research",
+      "name": "LoomCycle Researcher",
+      "type": "@loomcycle/n8n-nodes-loomcycle.loomCycleRun",
+      "typeVersion": 1,
+      "position": [
+        600,
+        300
+      ],
+      "parameters": {
+        "resource": "run",
+        "operation": "spawn",
+        "agent": "researcher",
+        "prompt": "={{ $json.query }}",
+        "treatPromptAsUntrusted": true
+      },
+      "credentials": {
+        "loomCycleApi": {
+          "id": "loomcycle-creds",
+          "name": "LoomCycle API"
+        }
+      }
+    },
+    {
+      "id": "node-summarise",
+      "name": "LoomCycle Summariser",
+      "type": "@loomcycle/n8n-nodes-loomcycle.loomCycleRun",
+      "typeVersion": 1,
+      "position": [
+        800,
+        300
+      ],
+      "parameters": {
+        "resource": "run",
+        "operation": "spawn",
+        "agent": "summariser",
+        "prompt": "=Summarise the following research output into 5 bullet points:\n\n{{ $json.finalText }}",
+        "treatPromptAsUntrusted": true
+      },
+      "credentials": {
+        "loomCycleApi": {
+          "id": "loomcycle-creds",
+          "name": "LoomCycle API"
+        }
+      }
+    },
+    {
+      "id": "node-publish",
+      "name": "Publish to Channel",
+      "type": "@loomcycle/n8n-nodes-loomcycle.loomCycleChannel",
+      "typeVersion": 1,
+      "position": [
+        1000,
+        300
+      ],
+      "parameters": {
+        "resource": "channel",
+        "operation": "publish",
+        "channel": "research-digests",
+        "scope": "global",
+        "payload": "={{ JSON.stringify({ query: $node[\"Set Query\"].json.query, summary: $json.finalText }) }}"
+      },
+      "credentials": {
+        "loomCycleApi": {
+          "id": "loomcycle-creds",
+          "name": "LoomCycle API"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Query": {
+      "main": [
+        [
+          {
+            "node": "LoomCycle Researcher",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LoomCycle Researcher": {
+      "main": [
+        [
+          {
+            "node": "LoomCycle Summariser",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LoomCycle Summariser": {
+      "main": [
+        [
+          {
+            "node": "Publish to Channel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "id": "wf_043",
+  "name": "loop in else branch",
+  "platform": "coze",
+  "nodes": [
+    {
+      "id": "v0",
+      "type": "task",
+      "name": "start"
+    },
+    {
+      "id": "v1",
+      "type": "if",
+      "condition": "fast path",
+      "then": {
+        "id": "v2",
+        "type": "task",
+        "name": "quick fix"
+      },
+      "else": {
+        "id": "v3",
+        "type": "while",
+        "condition": "slow retries",
+        "body": {
+          "id": "v4",
+          "type": "task",
+          "name": "retry"
+        },
+        "exit": true,
+        "data_dependent": false
+      }
+    },
+    {
+      "id": "v5",
+      "type": "task",
+      "name": "finish"
+    }
+  ],
+  "edges": [
+    {
+      "from": "v0",
+      "to": "v1"
+    },
+    {
+      "from": "v2",
+      "to": "v5"
+    },
+    {
+      "from": "v3",
+      "to": "v5"
+    }
+  ]
+}

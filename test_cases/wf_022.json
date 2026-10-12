@@ -1,0 +1,54 @@
+{
+  "id": "wf_022",
+  "name": "unpaired message interaction #22",
+  "platform": "n8n",
+  "nodes": [
+    {
+      "id": "p22_0",
+      "type": "task",
+      "name": "prepare payload"
+    },
+    {
+      "id": "p22_1",
+      "type": "task",
+      "name": "validate payload"
+    },
+    {
+      "id": "m22",
+      "type": "message",
+      "name": "send notification",
+      "sender": "service",
+      "receiver": "customer",
+      "platform": "n8n",
+      "pairing": "unpaired"
+    },
+    {
+      "id": "q22_0",
+      "type": "task",
+      "name": "continue pipeline"
+    },
+    {
+      "id": "q22_1",
+      "type": "task",
+      "name": "finalize"
+    }
+  ],
+  "edges": [
+    {
+      "from": "p22_0",
+      "to": "p22_1"
+    },
+    {
+      "from": "p22_1",
+      "to": "m22"
+    },
+    {
+      "from": "m22",
+      "to": "q22_0"
+    },
+    {
+      "from": "q22_0",
+      "to": "q22_1"
+    }
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "id": "wf_034",
+  "name": "terminal notification message",
+  "platform": "coze",
+  "nodes": [
+    {
+      "id": "c0",
+      "type": "task",
+      "name": "init order"
+    },
+    {
+      "id": "c1",
+      "type": "task",
+      "name": "finalize order"
+    },
+    {
+      "id": "c2",
+      "type": "task",
+      "name": "update ledger"
+    },
+    {
+      "id": "c3",
+      "type": "task",
+      "name": "issue invoice"
+    },
+    {
+      "id": "n2",
+      "type": "message",
+      "name": "send receipt",
+      "sender": "bot",
+      "receiver": "user",
+      "platform": "coze",
+      "pairing": "send_only"
+    }
+  ],
+  "edges": [
+    {
+      "from": "c0",
+      "to": "c1"
+    },
+    {
+      "from": "c1",
+      "to": "c2"
+    },
+    {
+      "from": "c2",
+      "to": "c3"
+    },
+    {
+      "from": "c3",
+      "to": "n2"
+    }
+  ]
+}

@@ -1,0 +1,133 @@
+:root{--bg:#080d15;--panel:#0d1420;--panel2:#111b2b;--line:#273244;--text:#e6edf6;--muted:#8591a4;--lime:#d5ff43;--lime2:#a8d832;--blue:#7898ff;--red:#ff5d68;--amber:#ffba4b;font-family:Inter,"PingFang SC","Microsoft YaHei",Segoe UI,Arial,sans-serif;color:var(--text)}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(circle at 55% 8%,#18263d 0,#080d15 42%);min-height:100vh}
+.app-shell{display:grid;grid-template-columns:1fr 365px;grid-template-rows:80px calc(100vh - 80px);min-height:100vh}
+.topbar{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:0 34px;border-bottom:1px solid var(--line);background:#0a1019cc;backdrop-filter:blur(14px)}
+.brand{display:flex;align-items:center;gap:15px;letter-spacing:.12em}
+.brand>span{font-weight:800;font-size:20px}
+.brand em{font-size:11px;color:#aeb7c6;font-style:normal}
+.brand b{font-size:10px;color:var(--lime);border:1px solid #617828;padding:5px 8px;border-radius:20px}
+.top-actions{display:flex;gap:18px;align-items:center}
+.connection{font-size:12px;color:var(--muted)}
+.connection i{display:inline-block;width:8px;height:8px;border-radius:50%;background:#5ce1a4;margin-right:7px}
+.language-button{border:1px solid var(--line);background:transparent;color:var(--text);cursor:pointer;border-radius:7px;padding:8px 12px;font-size:12px}
+.workspace{display:flex;min-width:0;flex-direction:column;padding:0 34px 25px}
+.workspace-head{padding:23px 0 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+.workspace-head .eyebrow{margin:0 0 4px}
+.workspace h1{font-size:18px;margin:0}
+.run-button{border:1px solid #6d8a20;background:#182312;color:var(--lime);border-radius:7px;padding:10px 13px;font-weight:700;cursor:pointer}
+.chat{flex:1;padding:30px 4%;overflow:auto;min-height:0}
+.message{display:flex;gap:12px;max-width:760px;margin:0 0 20px}
+.message.user{margin-left:auto;justify-content:flex-end}
+.avatar{flex:none;width:34px;height:34px;border:1px solid #536179;display:grid;place-items:center;font-size:11px;color:#cfd9e6}
+.bubble{background:#111a28;border:1px solid #26344a;padding:14px 16px;border-radius:3px 12px 12px 12px;min-width:0}
+.user .bubble{background:#17223a;border-radius:12px 3px 12px 12px}
+.bubble small{font-size:9px;color:#98a9c1;letter-spacing:.12em}
+.bubble p{margin:7px 0 0;line-height:1.6;font-size:14px;white-space:pre-wrap;word-break:break-word}
+.bubble .badge-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.badge{font-size:10px;padding:3px 7px;border-radius:10px;background:#51222b;color:#ffb0b7}
+.badge.ok{background:#17351f;color:#aaff70}
+.composer{border:1px solid var(--line);background:#0d1521;border-radius:8px;padding:10px;flex:none}
+.composer textarea{background:transparent;border:0;width:100%;height:52px;resize:none;color:var(--text);font:14px inherit;outline:none}
+.composer>div{display:flex;align-items:center;justify-content:space-between;border-top:1px solid #1d293b;padding-top:9px}
+.composer span{font-size:11px;color:var(--muted)}
+.composer button,.repair button{border:0;background:var(--lime);color:#152000;font-weight:800;padding:10px 18px;border-radius:5px;cursor:pointer}
+.run-panel{border-left:1px solid var(--line);background:#0b121c;display:flex;min-height:0;flex-direction:column}
+.run-panel-head{display:flex;justify-content:space-between;padding:25px 26px 16px;border-bottom:1px solid var(--line)}
+.run-panel-head .eyebrow{margin:0 0 5px}
+.run-panel h2{margin:0;font-size:20px}
+.run-panel-head>span{font-size:12px;color:var(--muted)}
+.steps{list-style:none;padding:15px 26px;margin:0;overflow:auto;flex:1;min-height:0}
+.step{position:relative;padding:0 0 13px 42px;min-height:57px}
+.step:before{content:"";position:absolute;left:15px;top:30px;bottom:0;border-left:1px solid #334055}
+.step:last-child:before{display:none}
+.step-number{position:absolute;left:0;top:0;width:31px;height:31px;border:1px solid #46536a;color:#9aa8bb;display:grid;place-items:center;font-size:11px}
+.step.complete .step-number{background:#1b3521;border-color:#71b560;color:#aaff70}
+.step.active .step-number{background:var(--lime);color:#152000;border-color:var(--lime);animation:pulse 1.2s infinite}
+.step.error .step-number{background:#401c23;border-color:var(--red);color:#ff9da5}
+.step-title{font-size:13px;font-weight:700}
+.step-sub{display:block;color:var(--muted);font-size:11px;margin-top:4px;line-height:1.45}
+.panel-footer{border-top:1px solid var(--line);padding:16px 26px;flex:none}
+.details-button{display:flex;width:100%;justify-content:space-between;padding:0;border:0;background:transparent;color:var(--text);cursor:pointer;font-weight:700}
+.details-button span:first-child{color:var(--lime)}
+.drawer{position:fixed;z-index:4;left:20px;right:385px;bottom:0;height:600px;background:#101927;border:1px solid #344158;border-radius:14px 14px 0 0;box-shadow:0 -20px 70px #0009;padding:0 30px;display:none}
+#drawer.open{display:block}
+.drawer-head{display:flex;justify-content:space-between;align-items:center;padding:19px 0;border-bottom:1px solid var(--line)}
+.drawer-head .eyebrow{margin:0 0 4px}
+.drawer-head h2{margin:0;font-size:18px}
+.drawer-head button{border:0;background:transparent;color:var(--text);font-size:26px;cursor:pointer}
+.tabs{display:flex;gap:18px;border-bottom:1px solid var(--line)}
+.tab{padding:14px 3px;background:transparent;border:0;color:var(--muted);font:12px inherit;cursor:pointer}
+.tab.active{color:var(--lime);border-bottom:2px solid var(--lime)}
+.tab-content{display:none;padding-top:18px;height:calc(100% - 128px);overflow:auto}
+.tab-content.active{display:block}
+.code-head{display:flex;justify-content:space-between;font-size:12px;color:#b7c4d5}
+.success{color:#8edc88}
+pre{margin:12px 0;background:#09101a;border:1px solid #26344b;border-radius:8px;padding:15px;color:#bcd4ff;line-height:1.55;font-size:12px;overflow:auto;max-height:calc(100% - 60px)}
+.empty{color:var(--muted);font-size:13px;padding:24px 0}
+.net{height:100%;min-height:320px;margin-top:8px;border:1px solid #29374b;border-radius:8px;background:#0a111c;overflow:auto}
+.report-body{padding:4px 0}
+.report-card{display:flex;gap:12px;background:#0a111c;border:1px solid #2a374a;border-radius:8px;padding:14px;margin-bottom:10px}
+.report-card.danger{border-color:#6a3038}
+.report-card>span{font-size:22px;color:var(--blue);font-weight:800;flex:none}
+.report-card.danger>span{color:var(--red)}
+.report-card h3{margin:0 0 6px;font-size:14px}
+.report-card p{margin:0;color:var(--muted);font-size:12px;line-height:1.5;word-break:break-all}
+.repair{display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding:17px;background:#172215;border:1px solid #4c6b2b;border-radius:8px;gap:12px}
+.repair .eyebrow{margin:0 0 6px;color:#bada83;font-size:10px;letter-spacing:.14em;font-weight:700}
+.repair h3{margin:0 0 6px;font-size:14px}
+.repair p{margin:0;color:var(--muted);font-size:12px;line-height:1.5}
+.repair-options{display:flex;flex-direction:column;gap:8px;margin:14px 0}
+.repair-option{display:flex;gap:10px;align-items:flex-start;background:#0a111c;border:1px solid #2e3b4f;border-radius:7px;padding:11px 12px;cursor:pointer}
+.repair-option:hover{border-color:#4a5c78}
+.repair-option input{margin-top:3px;accent-color:var(--lime)}
+.repair-option b{font-size:12px}
+.repair-option small{display:block;color:var(--muted);font-size:11px;margin-top:3px;line-height:1.4}
+.repair-option .conf{color:var(--amber);font-size:10px;border:1px solid #735526;padding:2px 6px;border-radius:8px;margin-left:6px}
+.step-actions{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+.mini-button{font:11px inherit;color:#b8c9e4;background:#142138;border:1px solid #304365;padding:5px 9px;border-radius:4px;cursor:pointer}
+.mini-button:hover{background:#1b2b45}
+.export-btn{background:#182312;color:var(--lime);border:1px solid #6d8a20}
+svg.net{display:block}
+svg text{font-family:Inter,Segoe UI,Arial,sans-serif}
+.msg-typing .avatar{animation:pulse 1.2s infinite}
+@media(max-width:1000px){.app-shell{grid-template-columns:1fr}.run-panel{display:none}.drawer{left:0;right:0}}
+
+/* ---- 样本与检测过程（演示模态） ---- */
+.samples-button{border:1px solid #3a4c6e;background:#101a2b;color:#c9d6ea;cursor:pointer;border-radius:7px;padding:8px 12px;font-size:12px;margin-right:4px}
+.samples-button:hover{border-color:#7898ff}
+.modal{position:fixed;inset:0;z-index:20;background:#04070caa;display:none;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
+.modal.open{display:flex}
+.modal-box{width:min(1060px,94vw);max-height:88vh;background:#0d1521;border:1px solid #344158;border-radius:14px;box-shadow:0 30px 90px #000a;display:flex;flex-direction:column;overflow:hidden}
+.modal-head{display:flex;justify-content:space-between;align-items:center;padding:18px 26px;border-bottom:1px solid var(--line)}
+.modal-head .eyebrow{margin:0 0 4px}
+.modal-head h2{margin:0;font-size:17px}
+.modal-head button{border:0;background:transparent;color:var(--text);font-size:26px;cursor:pointer}
+.samples-body{padding:20px 26px;overflow:auto}
+.samples-body h3{font-size:13px;letter-spacing:.04em;margin:20px 0 10px;color:#cfd9e6}
+.samples-body h3:first-child{margin-top:0}
+.samples-table{border-collapse:collapse;width:100%;font-size:12px}
+.samples-table th,.samples-table td{border:1px solid #273244;padding:7px 10px;text-align:left}
+.samples-table th{color:#aeb7c6;background:#111b2b;font-weight:600}
+.samples-table td{color:#dbe3ef}
+.samples-table tr:hover td{background:#101a2b}
+.sample-note{color:var(--muted);font-size:11px;line-height:1.7;margin-top:18px}
+
+/* ---- mermaid 图形容器 ---- */
+.mermaid-box{background:#0a111c;border:1px solid #29374b;border-radius:8px;padding:16px;min-width:100%;display:inline-block}
+.mermaid-box{overflow-x:auto}.mermaid-box svg{max-width:100%!important;height:auto!important}
+.net svg{max-width:none}
+
+/* ---- provenance μ 列表 ---- */
+.mu-list{margin-top:14px;border-top:1px dashed #2a374a;padding-top:12px}
+.mu-head{font-size:11px;letter-spacing:.08em;color:#b7c4d5;margin-bottom:8px;font-weight:700}
+.mu-row{display:flex;justify-content:space-between;gap:10px;padding:6px 8px;border:1px solid #223049;border-radius:6px;margin-bottom:6px;font-size:11px;background:#0a111c}
+.mu-row b{color:#d5ff43;font-weight:600;word-break:break-all}
+.mu-row span{color:var(--muted)}
+
+/* ---- 中文排版细节 ---- */
+.bubble p{font-size:14px;letter-spacing:.015em}
+.step-title{font-weight:600}
+pre{font-family:Consolas,Menlo,monospace}
+.tab{white-space:nowrap}
+.tabs{overflow-x:auto}

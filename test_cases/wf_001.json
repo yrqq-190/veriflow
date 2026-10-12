@@ -1,0 +1,64 @@
+{
+  "id": "wf_001",
+  "name": "conditional without else #1",
+  "platform": "dify",
+  "nodes": [
+    {
+      "id": "t1_0",
+      "type": "task",
+      "name": "step 1"
+    },
+    {
+      "id": "t1_1",
+      "type": "task",
+      "name": "step 2"
+    },
+    {
+      "id": "t1_2",
+      "type": "task",
+      "name": "step 3"
+    },
+    {
+      "id": "t1_3",
+      "type": "task",
+      "name": "step 4"
+    },
+    {
+      "id": "dec1",
+      "type": "if",
+      "condition": "check_1 == ok",
+      "then": {
+        "id": "then1",
+        "type": "task",
+        "name": "then action"
+      }
+    },
+    {
+      "id": "end1",
+      "type": "task",
+      "name": "finalize"
+    }
+  ],
+  "edges": [
+    {
+      "from": "t1_0",
+      "to": "t1_1"
+    },
+    {
+      "from": "t1_1",
+      "to": "t1_2"
+    },
+    {
+      "from": "t1_2",
+      "to": "t1_3"
+    },
+    {
+      "from": "t1_3",
+      "to": "dec1"
+    },
+    {
+      "from": "then1",
+      "to": "end1"
+    }
+  ]
+}

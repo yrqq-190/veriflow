@@ -1,0 +1,57 @@
+{
+  "id": "wf_017",
+  "name": "non-exiting loop #17",
+  "platform": "coze",
+  "nodes": [
+    {
+      "id": "pre17_0",
+      "type": "task",
+      "name": "prepare step 1"
+    },
+    {
+      "id": "pre17_1",
+      "type": "task",
+      "name": "prepare step 2"
+    },
+    {
+      "id": "pre17_2",
+      "type": "task",
+      "name": "prepare step 3"
+    },
+    {
+      "id": "pre17_3",
+      "type": "task",
+      "name": "prepare step 4"
+    },
+    {
+      "id": "loop17",
+      "type": "while",
+      "condition": "retry_17 < max",
+      "body": {
+        "id": "body17",
+        "type": "task",
+        "name": "retry body"
+      },
+      "exit": false,
+      "data_dependent": false
+    }
+  ],
+  "edges": [
+    {
+      "from": "pre17_0",
+      "to": "pre17_1"
+    },
+    {
+      "from": "pre17_1",
+      "to": "pre17_2"
+    },
+    {
+      "from": "pre17_2",
+      "to": "pre17_3"
+    },
+    {
+      "from": "pre17_3",
+      "to": "loop17"
+    }
+  ]
+}

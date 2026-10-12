@@ -1,0 +1,55 @@
+{
+  "id": "wf_006",
+  "name": "conditional without else #6",
+  "platform": "n8n",
+  "nodes": [
+    {
+      "id": "t6_0",
+      "type": "task",
+      "name": "step 1"
+    },
+    {
+      "id": "t6_1",
+      "type": "task",
+      "name": "step 2"
+    },
+    {
+      "id": "t6_2",
+      "type": "task",
+      "name": "step 3"
+    },
+    {
+      "id": "dec6",
+      "type": "if",
+      "condition": "check_6 == ok",
+      "then": {
+        "id": "then6",
+        "type": "task",
+        "name": "then action"
+      }
+    },
+    {
+      "id": "end6",
+      "type": "task",
+      "name": "finalize"
+    }
+  ],
+  "edges": [
+    {
+      "from": "t6_0",
+      "to": "t6_1"
+    },
+    {
+      "from": "t6_1",
+      "to": "t6_2"
+    },
+    {
+      "from": "t6_2",
+      "to": "dec6"
+    },
+    {
+      "from": "then6",
+      "to": "end6"
+    }
+  ]
+}

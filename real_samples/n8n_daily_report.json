@@ -1,0 +1,161 @@
+{
+  "name": "03 — Daily LoomCycle Activity Report",
+  "nodes": [
+    {
+      "id": "node-cron",
+      "name": "Daily at 09:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node-list-completed",
+      "name": "LoomCycle: List Completed",
+      "type": "@loomcycle/n8n-nodes-loomcycle.loomCycleRun",
+      "typeVersion": 1,
+      "position": [
+        450,
+        200
+      ],
+      "parameters": {
+        "resource": "run",
+        "operation": "listAgents",
+        "userId": "={{ $env.LOOMCYCLE_USER_ID }}",
+        "statusFilter": "completed"
+      },
+      "credentials": {
+        "loomCycleApi": {
+          "id": "loomcycle-creds",
+          "name": "LoomCycle API"
+        }
+      }
+    },
+    {
+      "id": "node-list-failed",
+      "name": "LoomCycle: List Failed",
+      "type": "@loomcycle/n8n-nodes-loomcycle.loomCycleRun",
+      "typeVersion": 1,
+      "position": [
+        450,
+        400
+      ],
+      "parameters": {
+        "resource": "run",
+        "operation": "listAgents",
+        "userId": "={{ $env.LOOMCYCLE_USER_ID }}",
+        "statusFilter": "failed"
+      },
+      "credentials": {
+        "loomCycleApi": {
+          "id": "loomcycle-creds",
+          "name": "LoomCycle API"
+        }
+      }
+    },
+    {
+      "id": "node-aggregate",
+      "name": "Aggregate Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const completed = $('LoomCycle: List Completed').first().json.agents ?? [];\nconst failed = $('LoomCycle: List Failed').first().json.agents ?? [];\n\nconst byAgentName = {};\nfor (const r of completed) {\n  byAgentName[r.agent] = byAgentName[r.agent] ?? { completed: 0, failed: 0 };\n  byAgentName[r.agent].completed += 1;\n}\nfor (const r of failed) {\n  byAgentName[r.agent] = byAgentName[r.agent] ?? { completed: 0, failed: 0 };\n  byAgentName[r.agent].failed += 1;\n}\n\nreturn [{\n  json: {\n    date: new Date().toISOString().slice(0, 10),\n    totals: { completed: completed.length, failed: failed.length },\n    byAgent: byAgentName,\n  },\n}];"
+      }
+    },
+    {
+      "id": "node-email",
+      "name": "Email Report",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        950,
+        300
+      ],
+      "parameters": {
+        "toEmail": "={{ $env.REPORT_EMAIL }}",
+        "subject": "=LoomCycle daily report — {{ $json.date }}",
+        "emailFormat": "text",
+        "text": "=LoomCycle agents — {{ $json.date }}\n\nCompleted: {{ $json.totals.completed }}\nFailed: {{ $json.totals.failed }}\n\nBy agent:\n{{ JSON.stringify($json.byAgent, null, 2) }}"
+      },
+      "credentials": {
+        "smtp": {
+          "id": "smtp-creds",
+          "name": "SMTP"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Daily at 09:00": {
+      "main": [
+        [
+          {
+            "node": "LoomCycle: List Completed",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "LoomCycle: List Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LoomCycle: List Completed": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LoomCycle: List Failed": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Report": {
+      "main": [
+        [
+          {
+            "node": "Email Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

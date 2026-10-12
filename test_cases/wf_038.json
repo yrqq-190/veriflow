@@ -1,0 +1,77 @@
+{
+  "id": "wf_038",
+  "name": "long linear pipeline",
+  "platform": "coze",
+  "nodes": [
+    {
+      "id": "n0",
+      "type": "task",
+      "name": "step 0"
+    },
+    {
+      "id": "n1",
+      "type": "task",
+      "name": "step 1"
+    },
+    {
+      "id": "n2",
+      "type": "task",
+      "name": "step 2"
+    },
+    {
+      "id": "n3",
+      "type": "task",
+      "name": "step 3"
+    },
+    {
+      "id": "n4",
+      "type": "task",
+      "name": "step 4"
+    },
+    {
+      "id": "n5",
+      "type": "task",
+      "name": "step 5"
+    },
+    {
+      "id": "n6",
+      "type": "task",
+      "name": "step 6"
+    },
+    {
+      "id": "n7",
+      "type": "task",
+      "name": "step 7"
+    }
+  ],
+  "edges": [
+    {
+      "from": "n0",
+      "to": "n1"
+    },
+    {
+      "from": "n1",
+      "to": "n2"
+    },
+    {
+      "from": "n2",
+      "to": "n3"
+    },
+    {
+      "from": "n3",
+      "to": "n4"
+    },
+    {
+      "from": "n4",
+      "to": "n5"
+    },
+    {
+      "from": "n5",
+      "to": "n6"
+    },
+    {
+      "from": "n6",
+      "to": "n7"
+    }
+  ]
+}

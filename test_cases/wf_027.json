@@ -1,0 +1,50 @@
+{
+  "id": "wf_027",
+  "name": "linear pipeline 5",
+  "platform": "n8n",
+  "nodes": [
+    {
+      "id": "s0",
+      "type": "task",
+      "name": "stage 0"
+    },
+    {
+      "id": "s1",
+      "type": "task",
+      "name": "stage 1"
+    },
+    {
+      "id": "s2",
+      "type": "task",
+      "name": "stage 2"
+    },
+    {
+      "id": "s3",
+      "type": "task",
+      "name": "stage 3"
+    },
+    {
+      "id": "s4",
+      "type": "task",
+      "name": "stage 4"
+    }
+  ],
+  "edges": [
+    {
+      "from": "s0",
+      "to": "s1"
+    },
+    {
+      "from": "s1",
+      "to": "s2"
+    },
+    {
+      "from": "s2",
+      "to": "s3"
+    },
+    {
+      "from": "s3",
+      "to": "s4"
+    }
+  ]
+}

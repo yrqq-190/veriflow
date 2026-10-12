@@ -1,0 +1,57 @@
+{
+  "id": "wf_015",
+  "name": "non-exiting loop #15",
+  "platform": "n8n",
+  "nodes": [
+    {
+      "id": "pre15_0",
+      "type": "task",
+      "name": "prepare step 1"
+    },
+    {
+      "id": "pre15_1",
+      "type": "task",
+      "name": "prepare step 2"
+    },
+    {
+      "id": "pre15_2",
+      "type": "task",
+      "name": "prepare step 3"
+    },
+    {
+      "id": "pre15_3",
+      "type": "task",
+      "name": "prepare step 4"
+    },
+    {
+      "id": "loop15",
+      "type": "while",
+      "condition": "retry_15 < max",
+      "body": {
+        "id": "body15",
+        "type": "task",
+        "name": "retry body"
+      },
+      "exit": false,
+      "data_dependent": false
+    }
+  ],
+  "edges": [
+    {
+      "from": "pre15_0",
+      "to": "pre15_1"
+    },
+    {
+      "from": "pre15_1",
+      "to": "pre15_2"
+    },
+    {
+      "from": "pre15_2",
+      "to": "pre15_3"
+    },
+    {
+      "from": "pre15_3",
+      "to": "loop15"
+    }
+  ]
+}

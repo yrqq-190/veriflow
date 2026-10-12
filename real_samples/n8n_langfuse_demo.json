@@ -1,0 +1,1361 @@
+{
+  "name": "Langfuse Studio — grouped demo",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Langfuse Studio — grouped demo\n\nManual Trigger → **Setup IDs** → **OpenAI Chat**, then a fan-out into five lanes you can read at a glance:\n\n1. **Ingestion** — build a trace (span/generation/score/event/log/batch), then Wait.\n2. **Public API reads** — health and list endpoints over existing data.\n3. **Datasets** — create a dataset, item, and run item, then read the run.\n4. **Prompts** — create a prompt, list, and fetch it.\n5. **Round-trip verification** — reads back the trace/observation/score written in lane 1, then deletes the demo score.\n\n### Setup\n1. Install `n8n-nodes-langfuse-studio`.\n2. Set your **Langfuse API** credential on every Langfuse node.\n3. Set your **OpenAI** credential on OpenAI Chat.\n\nEvery Langfuse node uses *Continue On Error*, so one failure never stops a lane. Langfuse ingestion is async — a 5s Wait precedes the round-trip reads, but a Get may still 404 on very fast runs; that is expected.",
+        "height": 320,
+        "width": 460
+      },
+      "id": "3c03556d-f302-425c-b10d-2c5294ffee84",
+      "name": "README",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -360
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 1 · Ingestion (writes + wait)",
+        "height": 200,
+        "width": 2700,
+        "color": 5
+      },
+      "id": "015e0499-28a6-4d62-ba51-95a71dc23d6f",
+      "name": "Lane: ingestion",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        640,
+        90
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 2 · Public API reads (existing data)",
+        "height": 200,
+        "width": 1980,
+        "color": 4
+      },
+      "id": "795f50c3-41b4-43fa-a9ab-b6cab913473a",
+      "name": "Lane: reads",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        640,
+        310
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 3 · Datasets (evaluation building blocks)",
+        "height": 200,
+        "width": 1500,
+        "color": 3
+      },
+      "id": "4306a19f-4724-4e3b-9ee1-001c78e276a1",
+      "name": "Lane: datasets",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        640,
+        530
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 4 · Prompts (create → list → get)",
+        "height": 200,
+        "width": 780,
+        "color": 6
+      },
+      "id": "03b6243a-dd56-4853-bdb5-7800f7ba24d0",
+      "name": "Lane: prompts",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        640,
+        750
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 5 · Round-trip verification (Get / Delete)",
+        "height": 200,
+        "width": 1020,
+        "color": 5
+      },
+      "id": "0aa352de-647b-4cd2-afba-df385701744c",
+      "name": "Lane: verify",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3280,
+        970
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "e158e2ce-ef1c-4217-b340-e56693f12a1a",
+      "name": "Manual Trigger",
+      "position": [
+        0,
+        0
+      ],
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "traceId",
+              "value": "=n8n-demo-{{ $now.toMillis() }}",
+              "type": "string"
+            },
+            {
+              "id": "a2",
+              "name": "sessionId",
+              "value": "=n8n-session-{{ $now.toFormat('yyyy-LL-dd') }}",
+              "type": "string"
+            },
+            {
+              "id": "a3",
+              "name": "spanId",
+              "value": "=span-{{ $now.toMillis() }}",
+              "type": "string"
+            },
+            {
+              "id": "a4",
+              "name": "genId",
+              "value": "=gen-{{ $now.toMillis() }}",
+              "type": "string"
+            },
+            {
+              "id": "a5",
+              "name": "scoreId",
+              "value": "=score-{{ $now.toMillis() }}",
+              "type": "string"
+            },
+            {
+              "id": "a6",
+              "name": "datasetName",
+              "value": "n8n-demo-dataset",
+              "type": "string"
+            },
+            {
+              "id": "a7",
+              "name": "datasetItemId",
+              "value": "=demo-item-{{ $now.toMillis() }}",
+              "type": "string"
+            },
+            {
+              "id": "a8",
+              "name": "runName",
+              "value": "=run-{{ $now.toMillis() }}",
+              "type": "string"
+            },
+            {
+              "id": "a9",
+              "name": "prompt",
+              "value": "Explain in one sentence why observability matters for LLM applications.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "24852670-4802-453e-b1da-b5223f78ef71",
+      "name": "Setup IDs",
+      "position": [
+        240,
+        0
+      ],
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "={{ $json.prompt }}",
+              "role": "user"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "317f3d77-cb4a-4b8d-ab05-b6a56893caea",
+      "name": "OpenAI Chat",
+      "position": [
+        480,
+        0
+      ],
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "credentials": {
+        "openAiApi": {
+          "id": "REPLACE_OPENAI_CRED",
+          "name": "OpenAi account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "trace",
+        "operation": "traceCreate",
+        "traceId": "={{ $('Setup IDs').item.json.traceId }}",
+        "name": "n8n-demo-trace",
+        "inputJson": "={{ JSON.stringify({ prompt: $('Setup IDs').item.json.prompt }) }}",
+        "outputJson": "={{ JSON.stringify($('OpenAI Chat').item.json) }}",
+        "showAdvancedFields": true,
+        "sessionId": "={{ $('Setup IDs').item.json.sessionId }}",
+        "tags": "n8n,demo,langfuse-studio",
+        "environment": "production",
+        "metadataJson": "{\"source\":\"n8n\",\"demo\":\"langfuse-studio\"}"
+      },
+      "id": "75967d5e-d6ed-46ae-9eb5-557f120f4328",
+      "name": "Trace Create",
+      "position": [
+        720,
+        200
+      ],
+      "type": "n8n-nodes-langfuse-studio.langfuse",
+      "typeVersion": 2,
+      "credentials": {
+        "langfuseApi": {
+          "id": "REPLACE_LANGFUSE_CRED",
+          "name": "Langfuse account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "span",
+        "operation": "spanCreate",
+        "traceId": "={{ $('Setup IDs').item.json.traceId }}",
+        "name": "workflow-step",
+        "inputJson": "={{ JSON.stringify({ prompt: $('Setup IDs').item.json.prompt }) }}",
+        "showAdvancedFields": true,
+        "observationId": "={{ $('Setup IDs').item.json.spanId }}",
+        "startTime": "={{ $now.toISO() }}",
+        "environment": "production"
+      },
+      "id": "18693778-b6e0-4d1e-a43e-d65ec64d2a6a",
+      "name": "Span Create",
+      "position": [
+        960,
+        200
+      ],
+      "type": "n8n-nodes-langfuse-studio.langfuse",
+      "typeVersion": 2,
+      "credentials": {
+        "langfuseApi": {
+          "id": "REPLACE_LANGFUSE_CRED",
+          "name": "Langfuse account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "span",
+        "operation": "spanUpdate",
+        "traceId": "={{ $('Setup IDs').item.json.traceId }}",
+        "name": "workflow-step",
+        "showAdvancedFields": true,
+        "observationId": "={{ $('Setup IDs').item.json.spanId }}",
+        "endTime": "={{ $now.toISO() }}",
+        "level": "DEFAULT",
+        "statusMessage": "completed",
+        "outputJson": "{\"status\":\"ok\"}"
+      },
+      "id": "986775c9-92d9-4451-9b16-2a558cfdb2e2",
+      "name": "Span Update",
+      "position": [
+        1200,
+        200
+      ],
+      "type": "n8n-nodes-langfuse-studio.langfuse",
+      "typeVersion": 2,
+      "credentials": {
+        "langfuseApi": {
+          "id": "REPLACE_LANGFUSE_CRED",
+          "name": "Langfuse account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "generation",
+        "operation": "generationCreate",
+        "traceId": "={{ $('Setup IDs').item.json.traceId }}",
+        "name": "openai-generation",
+        "model": "gpt-4o-mini",
+        "inputJson": "={{ JSON.stringify({ prompt: $('Setup IDs').item.json.prompt }) }}",
+        "outputJson": "={{ JSON.stringify($('OpenAI Chat').item.json) }}",
+        "showAdvancedFields": true,
+        "observationId": "={{ $('Setup IDs').item.json.genId }}",
+        "parentObservationId": "={{ $('Setup IDs').item.json.spanId }}",
+        "startTime": "={{ $now.toISO() }}",
+        "environment": "production",
+        "usageDetailsJson": "={{ JSON.stringify($('OpenAI Chat').item.json.usage ?? $('OpenAI Chat').item.json.tokenUsage ?? {}) }}",
+        "modelParametersJson": "{\"temperature\":0.7}"
+      },
+      "id": "71b4eed4-06f9-414f-a8e8-e8c3dd996a6d",
+      "name": "Generation Create",
+      "position": [
+        1440,
+        200
+      ],
+      "type": "n8n-nodes-langfuse-studio.langfuse",
+      "typeVersion": 2,
+      "credentials": {
+        "langfuseApi": {
+          "id": "REPLACE_LANGFUSE_CRED",
+          "name": "Langfuse account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "generation",
+        "operation": "generationUpdate",
+        "traceId": "={{ $('Setup IDs').item.json.traceId }}",
+        "name": "openai-generation",
+        "model": "gpt-4o-mini",
+        "outputJson": "={{ JSON.stringify($('OpenAI Chat').item.json) }}",
+        "showAdvancedFields": true,
+        "observationId": "={{ $('Setup IDs').item.json.genId }}",
+        "endTime": "={{ $now.toISO() }}",
+        "costDetailsJson": "{\"total_cost\":0.0001}"
+      },
+      "id": "c7abf4e2-9c18-4248-87f6-4effb155ebd5",
+      "name": "Generation Update",
+      "position": [
+        1680,
+        200
+      ],
+      "type": "n8n-nodes-langfuse-studio.langfuse",
+      "typeVersion": 2,
+      "credentials": {
+        "langfuseApi": {
+          "id": "REPLACE_LANGFUSE_CRED",
+          "name": "Langfuse account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "generation",
+        "operation": "finalizeSpan",
+        "traceId": "={{ $('Setup IDs').item.json.traceId }}",
+        "name": "llm-response",
+        "model": "gpt-4o-mini",
+        "promptName": "n8n-demo-prompt",
+        "promptVersion": "1",
+        "inputJson": "={{ JSON.stringify({ prompt: $('Setup IDs').item.json.prompt }) }}",
+        "outputJson": "={{ JSON.stringify($('OpenAI Chat').item.json) }}",
+        "showAdvancedFields": true,
+        "observationId": "={{ $('Setup IDs').item.json.spanId }}",
+        "endTime": "={{ $now.toISO() }}"
+      },
+      "id": "c8c54f8d-bfdd-4ab5-ba0d-f3fc4bbe2ccc",
+      "name": "Finalize Span",
+      "position": [
+        1920,
+        200
+      ],
+      "type": "n8n-nodes-langfuse-studio.langfuse",
+      "typeVersion": 2,
+      "credentials": {
+        "langfuseApi": {
+          "id": "REPLACE_LANGFUSE_CRED",
+          "name": "Langfuse account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "score",
+        "operation": "scoreCreate",
+        "traceId": "={{ $('Setup IDs').item.json.traceId }}",
+        "scoreName": "demo-relevance",
+        "scoreValue": "0.9",
+        "scoreDataType": "NUMERIC",
+        "showAdvancedFields": true,
+        "scoreId": "={{ $('Setup IDs').item.json.scoreId }}",
+        "scoreComment": "Automated demo score",
+        "scoreEnvironment": "production"
+      },
+      "id": "b302dbc9-88c4-4fd0-ae47-afb348892520",
+      "name": "Score Create",
+      "position": [
+        2160,
+        200
+      ],
+      "type": "n8n-nodes-langfuse-studio.langfuse",
+      "typeVersion": 2,
+      "credentials": {
+        "langfuseApi": {
+          "id": "REPLACE_LANGFUSE_CRED",
+          "name": "Langfuse account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "system",
+        "operation": "eventCreate",
+        "traceId": "={{ $('Setup IDs').item.json.traceId }}",
+        "name": "demo-event",
+        "inputJson": "{\"event\":\"user_action\"}",
+        "showAdvancedFields": true,
+        "parentObservationId": "={{ $('Setup IDs').item.json.spanId }}",
+        "environment": "production",
+        "metadataJson": "{\"step\":\"event-demo\"}"
+      },
+      "id": "a235b317-dfcd-4046-81ff-91e41e1ef9c1",
+      "name": "Event Create",
+      "position": [
+        2400,
+        200
+      ],
+      "type": "n8n-nodes-langfuse-studio.langfuse",
+      "typeVersion": 2,
+      "credentials": {
+        "langfuseApi": {
+          "id": "REPLACE_LANGFUSE_CRED",
+          "name": "Langfuse account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "system",
+        "operation": "sdkLogCreate",
+        "traceId": "={{ $('Setup IDs').item.json.traceId }}",
+        "sdkMessage": "n8n Langfuse Studio demo SDK log",
+        "sdkLevel": "info",
+        "showAdvancedFields": true,
+        "metadataJson": "{\"component\":\"n8n\"}"
+      },
+      "id": "36ecf205-9a9d-493b-8882-49d795fe525c",
+      "name": "SDK Log",
+      "position": [
+        2640,
+        200
+      ],
+      "type": "n8n-nodes-langfuse-studio.langfuse",
+      "typeVersion": 2,
+      "credentials": {
+        "langfuseApi": {
+          "id": "REPLACE_LANGFUSE_CRED",
+          "name": "Langfuse account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "system",
+        "operation": "batchRaw",
+        "batchJson": "={{ JSON.stringify({ batch: [ { id: 'evt-' + $now.toMillis(), type: 'event-create', timestamp: $now.toISO(), body: { id: 'batch-' + $now.toMillis(), traceId: $('Setup IDs').item.json.traceId, name: 'raw-batch-event' } } ] }) }}"
+      },
+      "id": "fcfc2382-ac29-4e47-91cc-3684bca69709",
+      "name": "Batch Raw",
+      "position": [
+        2880,
+        200
+      ],
+      "type": "n8n-nodes-langfuse-studio.langfuse",
+      "typeVersion": 2,
+      "credentials": {
+        "langfuseApi": {
+          "id": "REPLACE_LANGFUSE_CRED",
+          "name": "Langfuse account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "amount": 5
+      },
+      "id": "67fecadd-fa91-480d-9754-d2faaf1b8ca8",
+      "name": "Wait for Ingestion",
+      "position": [
+        3120,
+        200
+      ],
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "resource": "system",
+        "operation": "health"
+      },
+      "id": "423c82ce-6492-40db-b150-6579bb13e9df",
+      "name": "Health",
+      "position": [
+        720,
+        420
+      ],
+      "type": "n8n-nodes-langfuse-studio.langfuse",
+      "typeVersion": 2,
+      "credentials": {
+        "langfuseApi": {
+          "id": "REPLACE_LANGFUSE_CRED",
+          "name": "Langfuse account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "trace",
+        "operation": "listTraces",
+        "showAdvancedFields": true,
+        "queryJson": "{\"limit\":5}"
+      },
+      "id": "ee2dd2f1-7db8-4cee-8c10-b3f2db5d0428",
+      "name": "List Traces",
+      "position": [
+        960,
+        420
+      ],
+      "type": "n8n-nodes-langfuse-studio.langfuse",
+      "typeVersion": 2,
+      "credentials": {
+        "langfuseApi": {
+          "id": "REPLACE_LANGFUSE_CRED",
+          "name": "Langfuse account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "observation",
+        "operation": "listObservations",
+        "showAdvancedFields": true,
+        "queryJson": "{\"limit\":5}"
+      },
+      "id": "87f21a23-8076-43b8-bbe9-6286df5302d1",
+      "name": "List Observations",
+      "position": [
+        1200,
+        420
+      ],
+      "type": "n8n-nodes-langfuse-studio.langfuse",
+      "typeVersion": 2,
+      "credentials": {
+        "langfuseApi": {
+          "id": "REPLACE_LANGFUSE_CRED",
+          "name": "Langfuse account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "score",
+        "operation": "listScores",
+        "showAdvancedFields": true,
+        "queryJson": "{\"limit\":5}"
+      },
+      "id": "9937c42c-9087-4248-a9dd-a16998b24c71",
+      "name": "List Scores",
+      "position": [
+        1440,
+        420
+      ],
+      "type": "n8n-nodes-langfuse-studio.langfuse",
+      "typeVersion": 2,
+      "credentials": {
+        "langfuseApi": {
+          "id": "REPLACE_LANGFUSE_CRED",
+          "name": "Langfuse account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "session",
+        "operation": "listSessions",
+        "showAdvancedFields": true,
+        "queryJson": "{\"limit\":5}"
+      },
+      "id": "a950bff2-de1d-4d49-983d-6ede18ecec45",
+      "name": "List Sessions",
+      "position": [
+        1680,
+        420
+      ],
+      "type": "n8n-nodes-langfuse-studio.langfuse",
+      "typeVersion": 2,
+      "credentials": {
+        "langfuseApi": {
+          "id": "REPLACE_LANGFUSE_CRED",
+          "name": "Langfuse account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "queue",
+        "operation": "listAnnotationQueues",
+        "showAdvancedFields": true,
+        "queryJson": "{\"limit\":5}"
+      },
+      "id": "78ad89d7-3af9-41a2-8b19-9261d82d9df0",
+      "name": "List Annotation Queues",
+      "position": [
+        1920,
+        420
+      ],
+      "type": "n8n-nodes-langfuse-studio.langfuse",
+      "typeVersion": 2,
+      "credentials": {
+        "langfuseApi": {
+          "id": "REPLACE_LANGFUSE_CRED",
+          "name": "Langfuse account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "queue",
+        "operation": "getAnnotationQueue",
+        "queueId": "={{ $json.data?.[0]?.id }}"
+      },
+      "id": "316a89d2-5e04-4f91-8dc7-2e92861b44be",
+      "name": "Get Annotation Queue",
+      "position": [
+        2160,
+        420
+      ],
+      "type": "n8n-nodes-langfuse-studio.langfuse",
+      "typeVersion": 2,
+      "credentials": {
+        "langfuseApi": {
+          "id": "REPLACE_LANGFUSE_CRED",
+          "name": "Langfuse account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "system",
+        "operation": "customRequest",
+        "path": "/v2/scores",
+        "method": "GET",
+        "showAdvancedFields": true,
+        "queryJson": "{\"limit\":1}"
+      },
+      "id": "12feb188-d813-4989-9a8b-7a828664667a",
+      "name": "Custom Request",
+      "position": [
+        2400,
+        420
+      ],
+      "type": "n8n-nodes-langfuse-studio.langfuse",
+      "typeVersion": 2,
+      "credentials": {
+        "langfuseApi": {
+          "id": "REPLACE_LANGFUSE_CRED",
+          "name": "Langfuse account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "dataset",
+        "operation": "createDataset",
+        "datasetName": "={{ $('Setup IDs').item.json.datasetName }}",
+        "showAdvancedFields": true,
+        "datasetDescription": "Demo dataset created from n8n"
+      },
+      "id": "75834c02-4e6e-422e-b508-7542c87ecc36",
+      "name": "Create Dataset",
+      "position": [
+        720,
+        640
+      ],
+      "type": "n8n-nodes-langfuse-studio.langfuse",
+      "typeVersion": 2,
+      "credentials": {
+        "langfuseApi": {
+          "id": "REPLACE_LANGFUSE_CRED",
+          "name": "Langfuse account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "datasetItem",
+        "operation": "createDatasetItem",
+        "datasetName": "={{ $('Setup IDs').item.json.datasetName }}",
+        "inputJson": "={{ JSON.stringify({ prompt: $('Setup IDs').item.json.prompt }) }}",
+        "expectedOutputJson": "{\"answer\":\"observability matters\"}",
+        "showAdvancedFields": true,
+        "datasetItemId": "={{ $('Setup IDs').item.json.datasetItemId }}"
+      },
+      "id": "b819e94d-d863-4735-b930-8430d8c4281b",
+      "name": "Create Dataset Item",
+      "position": [
+        960,
+        640
+      ],
+      "type": "n8n-nodes-langfuse-studio.langfuse",
+      "typeVersion": 2,
+      "credentials": {
+        "langfuseApi": {
+          "id": "REPLACE_LANGFUSE_CRED",
+          "name": "Langfuse account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "datasetItem",
+        "operation": "listDatasetItems",
+        "showAdvancedFields": true,
+        "queryJson": "={{ JSON.stringify({ datasetName: $('Setup IDs').item.json.datasetName, limit: 5 }) }}"
+      },
+      "id": "a5ec8828-4f41-4897-a392-ea7e846f8b51",
+      "name": "List Dataset Items",
+      "position": [
+        1200,
+        640
+      ],
+      "type": "n8n-nodes-langfuse-studio.langfuse",
+      "typeVersion": 2,
+      "credentials": {
+        "langfuseApi": {
+          "id": "REPLACE_LANGFUSE_CRED",
+          "name": "Langfuse account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "datasetRun",
+        "operation": "createDatasetRunItem",
+        "runName": "={{ $('Setup IDs').item.json.runName }}",
+        "datasetItemId": "={{ $('Setup IDs').item.json.datasetItemId }}",
+        "traceId": "={{ $('Setup IDs').item.json.traceId }}"
+      },
+      "id": "965ef63d-981b-4ab8-b5cf-a281f9324e13",
+      "name": "Create Run Item",
+      "position": [
+        1440,
+        640
+      ],
+      "type": "n8n-nodes-langfuse-studio.langfuse",
+      "typeVersion": 2,
+      "credentials": {
+        "langfuseApi": {
+          "id": "REPLACE_LANGFUSE_CRED",
+          "name": "Langfuse account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "datasetRun",
+        "operation": "listDatasetRuns",
+        "datasetName": "={{ $('Setup IDs').item.json.datasetName }}"
+      },
+      "id": "3b4f32a7-6560-4f60-b270-200f59cd7ff0",
+      "name": "List Dataset Runs",
+      "position": [
+        1680,
+        640
+      ],
+      "type": "n8n-nodes-langfuse-studio.langfuse",
+      "typeVersion": 2,
+      "credentials": {
+        "langfuseApi": {
+          "id": "REPLACE_LANGFUSE_CRED",
+          "name": "Langfuse account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "datasetRun",
+        "operation": "getDatasetRun",
+        "datasetName": "={{ $('Setup IDs').item.json.datasetName }}",
+        "runName": "={{ $('Setup IDs').item.json.runName }}"
+      },
+      "id": "5b169321-c8c7-439a-bc8d-b94ffe97e5f2",
+      "name": "Get Dataset Run",
+      "position": [
+        1920,
+        640
+      ],
+      "type": "n8n-nodes-langfuse-studio.langfuse",
+      "typeVersion": 2,
+      "credentials": {
+        "langfuseApi": {
+          "id": "REPLACE_LANGFUSE_CRED",
+          "name": "Langfuse account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "prompt",
+        "operation": "createPrompt",
+        "promptName": "n8n-demo-prompt",
+        "promptType": "text",
+        "promptText": "Answer the question: {{question}}",
+        "showAdvancedFields": true,
+        "promptLabels": "production",
+        "promptCommitMessage": "created from the n8n demo"
+      },
+      "id": "42077db0-fda1-4e77-92c3-e0fdbf1ef9ec",
+      "name": "Create Prompt",
+      "position": [
+        720,
+        860
+      ],
+      "type": "n8n-nodes-langfuse-studio.langfuse",
+      "typeVersion": 2,
+      "credentials": {
+        "langfuseApi": {
+          "id": "REPLACE_LANGFUSE_CRED",
+          "name": "Langfuse account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "prompt",
+        "operation": "listPrompts",
+        "showAdvancedFields": true,
+        "queryJson": "{\"limit\":5}"
+      },
+      "id": "87fc333f-d6d7-4de8-9224-31d430beb2e3",
+      "name": "List Prompts",
+      "position": [
+        960,
+        860
+      ],
+      "type": "n8n-nodes-langfuse-studio.langfuse",
+      "typeVersion": 2,
+      "credentials": {
+        "langfuseApi": {
+          "id": "REPLACE_LANGFUSE_CRED",
+          "name": "Langfuse account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "prompt",
+        "operation": "getPrompt",
+        "promptName": "={{ $json.data?.[0]?.name }}"
+      },
+      "id": "c7802e25-dfb7-46d6-baf9-6808ded94841",
+      "name": "Get Prompt",
+      "position": [
+        1200,
+        860
+      ],
+      "type": "n8n-nodes-langfuse-studio.langfuse",
+      "typeVersion": 2,
+      "credentials": {
+        "langfuseApi": {
+          "id": "REPLACE_LANGFUSE_CRED",
+          "name": "Langfuse account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "trace",
+        "operation": "getTrace",
+        "traceId": "={{ $('Setup IDs').item.json.traceId }}"
+      },
+      "id": "5c76e417-03b1-4072-8076-60d93ec058a2",
+      "name": "Get Trace",
+      "position": [
+        3360,
+        1080
+      ],
+      "type": "n8n-nodes-langfuse-studio.langfuse",
+      "typeVersion": 2,
+      "credentials": {
+        "langfuseApi": {
+          "id": "REPLACE_LANGFUSE_CRED",
+          "name": "Langfuse account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "observation",
+        "operation": "getObservation",
+        "observationId": "={{ $('Setup IDs').item.json.spanId }}"
+      },
+      "id": "715ad679-dee1-41c1-bfd8-7f77ecb3ff69",
+      "name": "Get Observation",
+      "position": [
+        3600,
+        1080
+      ],
+      "type": "n8n-nodes-langfuse-studio.langfuse",
+      "typeVersion": 2,
+      "credentials": {
+        "langfuseApi": {
+          "id": "REPLACE_LANGFUSE_CRED",
+          "name": "Langfuse account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "score",
+        "operation": "getScore",
+        "scoreId": "={{ $('Setup IDs').item.json.scoreId }}"
+      },
+      "id": "c6420639-5dfe-4572-9897-1e0729bb292d",
+      "name": "Get Score",
+      "position": [
+        3840,
+        1080
+      ],
+      "type": "n8n-nodes-langfuse-studio.langfuse",
+      "typeVersion": 2,
+      "credentials": {
+        "langfuseApi": {
+          "id": "REPLACE_LANGFUSE_CRED",
+          "name": "Langfuse account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "score",
+        "operation": "deleteScore",
+        "scoreId": "={{ $('Setup IDs').item.json.scoreId }}"
+      },
+      "id": "ca24907c-d129-434d-bbc1-777df8ac9823",
+      "name": "Delete Score",
+      "position": [
+        4080,
+        1080
+      ],
+      "type": "n8n-nodes-langfuse-studio.langfuse",
+      "typeVersion": 2,
+      "credentials": {
+        "langfuseApi": {
+          "id": "REPLACE_LANGFUSE_CRED",
+          "name": "Langfuse account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Setup IDs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Setup IDs": {
+      "main": [
+        [
+          {
+            "node": "OpenAI Chat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat": {
+      "main": [
+        [
+          {
+            "node": "Trace Create",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Health",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create Dataset",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trace Create": {
+      "main": [
+        [
+          {
+            "node": "Span Create",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Span Create": {
+      "main": [
+        [
+          {
+            "node": "Span Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Span Update": {
+      "main": [
+        [
+          {
+            "node": "Generation Create",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generation Create": {
+      "main": [
+        [
+          {
+            "node": "Generation Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generation Update": {
+      "main": [
+        [
+          {
+            "node": "Finalize Span",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finalize Span": {
+      "main": [
+        [
+          {
+            "node": "Score Create",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Score Create": {
+      "main": [
+        [
+          {
+            "node": "Event Create",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Event Create": {
+      "main": [
+        [
+          {
+            "node": "SDK Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SDK Log": {
+      "main": [
+        [
+          {
+            "node": "Batch Raw",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Batch Raw": {
+      "main": [
+        [
+          {
+            "node": "Wait for Ingestion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Health": {
+      "main": [
+        [
+          {
+            "node": "List Traces",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Traces": {
+      "main": [
+        [
+          {
+            "node": "List Observations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Observations": {
+      "main": [
+        [
+          {
+            "node": "List Scores",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Scores": {
+      "main": [
+        [
+          {
+            "node": "List Sessions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Sessions": {
+      "main": [
+        [
+          {
+            "node": "List Annotation Queues",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Annotation Queues": {
+      "main": [
+        [
+          {
+            "node": "Get Annotation Queue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Annotation Queue": {
+      "main": [
+        [
+          {
+            "node": "Custom Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Dataset": {
+      "main": [
+        [
+          {
+            "node": "Create Dataset Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Dataset Item": {
+      "main": [
+        [
+          {
+            "node": "List Dataset Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Dataset Items": {
+      "main": [
+        [
+          {
+            "node": "Create Run Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Run Item": {
+      "main": [
+        [
+          {
+            "node": "List Dataset Runs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Dataset Runs": {
+      "main": [
+        [
+          {
+            "node": "Get Dataset Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Prompt": {
+      "main": [
+        [
+          {
+            "node": "List Prompts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Prompts": {
+      "main": [
+        [
+          {
+            "node": "Get Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Trace": {
+      "main": [
+        [
+          {
+            "node": "Get Observation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Observation": {
+      "main": [
+        [
+          {
+            "node": "Get Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Score": {
+      "main": [
+        [
+          {
+            "node": "Delete Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for Ingestion": {
+      "main": [
+        [
+          {
+            "node": "Get Trace",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

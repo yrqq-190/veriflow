@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VeriFlow 真实平台数据评估报告</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<style>
+  body{background:#0a1019;color:#e6edf6;font-family:Inter,Segoe UI,Arial,sans-serif;margin:0;padding:24px}
+  h1{font-size:20px;margin:0 0 4px}
+  .sub{color:#8591a4;font-size:12px;margin-bottom:18px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .card{background:#0d1420;border:1px solid #273244;border-radius:10px;padding:14px 14px 4px}
+  .card h2{font-size:13px;margin:0 0 4px;letter-spacing:.06em}
+  .chart{width:100%;height:300px}
+  .full{grid-column:1/-1}
+  .kpis{display:flex;gap:12px;margin:16px 0}
+  .kpi{flex:1;background:#111b2b;border:1px solid #273244;border-radius:8px;padding:12px 14px}
+  .kpi b{font-size:22px;color:#d5ff43;display:block}
+  .kpi small{color:#8591a4;font-size:11px}
+  table{border-collapse:collapse;width:100%;font-size:12px;margin-top:8px}
+  th,td{border:1px solid #273244;padding:6px 10px;text-align:left}
+  th{color:#aeb7c6;background:#111b2b}
+  .note{color:#8591a4;font-size:11px;margin-top:8px;line-height:1.5}
+</style>
+</head>
+<body>
+<h1>VeriFlow 真实平台数据评估（实测）</h1>
+<div class="sub">数据集：6 个真实 n8n/Dify 生产模板 + 25 个受控注入缺陷样本 · 数值为实测结果，不参照论文</div>
+<div class="kpis">
+  <div class="kpi"><b>89.7%</b><small>JCPN F1（Prec 100.0% / Rec 81.2%）</small></div>
+  <div class="kpi"><b>71.8%</b><small>Graph 检查器 F1</small></div>
+  <div class="kpi"><b>59.2%</b><small>JSON Schema F1</small></div>
+  <div class="kpi"><b>0</b><small>JCPN 误报（FP=0）</small></div>
+</div>
+<div class="grid">
+  <div class="card full"><h2>三方法对比（Precision / Recall / F1 / Accuracy）</h2><div id="cmp" class="chart"></div></div>
+  <div class="card full"><h2>缺陷类型检出（注入数 vs 检出数）</h2><div id="bytype" class="chart"></div></div>
+  <div class="card full"><h2>JCPN 混淆矩阵</h2><div id="cm" class="chart" style="height:260px"></div></div>
+</div>
+<script>
+var DATA = {"dataset": {"normal": 12, "defective": 48, "total": 60}, "results": {"jcpn": {"tp": 39, "fp": 0, "fn": 9, "tn": 12, "precision": 1.0, "recall": 0.8125, "f1": 0.896551724137931, "accuracy": 0.85, "fp_ids": [], "fn_ids": ["dify_xiaohongshu_full#variable_constraint", "n8n_ai_agent_tool#variable_constraint", "n8n_clone_build_download#variable_constraint", "n8n_daily_report#variable_constraint", "n8n_langfuse_demo#variable_constraint", "n8n_lead_followup#variable_constraint", "n8n_loomcycle_tool#variable_constraint", "n8n_multi_agent_research#variable_constraint", "n8n_web_app_preview#variable_constraint"]}, "graph": {"tp": 28, "fp": 2, "fn": 20, "tn": 10, "precision": 0.9333333333333333, "recall": 0.5833333333333334, "f1": 0.7179487179487181, "accuracy": 0.6333333333333333, "fp_ids": ["n8n_daily_report", "n8n_slack_loop"], "fn_ids": ["dify_xiaohongshu_full#unreachable_node", "dify_xiaohongshu_full#abnormal_loop", "n8n_ai_agent_tool#abnormal_loop", "n8n_clone_build_download#abnormal_loop", "n8n_demo_workflow#abnormal_loop", "n8n_langfuse_demo#abnormal_loop", "n8n_lead_followup#abnormal_loop", "n8n_loomcycle_tool#abnormal_loop", "n8n_multi_agent_research#abnormal_loop", "n8n_run_command_ephemeral#abnormal_loop", "n8n_web_app_preview#abnormal_loop", "n8n_lead_followup#broken_message", "dify_xiaohongshu_full#variable_constraint", "n8n_ai_agent_tool#variable_constraint", "n8n_clone_build_download#variable_constraint", "n8n_langfuse_demo#variable_constraint", "n8n_lead_followup#variable_constraint", "n8n_loomcycle_tool#variable_constraint", "n8n_multi_agent_research#variable_constraint", "n8n_web_app_preview#variable_constraint"]}, "schema": {"tp": 21, "fp": 2, "fn": 27, "tn": 10, "precision": 0.9130434782608695, "recall": 0.4375, "f1": 0.5915492957746479, "accuracy": 0.5166666666666667, "fp_ids": ["n8n_ai_agent_tool", "n8n_lead_followup"], "fn_ids": ["dify_xiaohongshu_full#isolated_node", "n8n_clone_build_download#isolated_node", "n8n_daily_report#isolated_node", "n8n_langfuse_demo#isolated_node", "n8n_loomcycle_tool#isolated_node", "n8n_multi_agent_research#isolated_node", "n8n_slack_loop#isolated_node", "n8n_web_app_preview#isolated_node", "dify_xiaohongshu_full#unreachable_node", "n8n_clone_build_download#unreachable_node", "n8n_daily_report#unreachable_node", "n8n_demo_workflow#unreachable_node", "n8n_langfuse_demo#unreachable_node", "n8n_loomcycle_tool#unreachable_node", "n8n_multi_agent_research#unreachable_node", "n8n_run_command_ephemeral#unreachable_node", "n8n_slack_loop#unreachable_node", "n8n_web_app_preview#unreachable_node", "n8n_daily_report#broken_message", "n8n_slack_loop#broken_message", "dify_xiaohongshu_full#variable_constraint", "n8n_clone_build_download#variable_constraint", "n8n_daily_report#variable_constraint", "n8n_langfuse_demo#variable_constraint", "n8n_loomcycle_tool#variable_constraint", "n8n_multi_agent_research#variable_constraint", "n8n_web_app_preview#variable_constraint"]}}, "by_type": [{"kind": "abnormal_loop", "total": 12, "jcpn": 12, "graph": 2, "schema": 12}, {"kind": "broken_message", "total": 3, "jcpn": 3, "graph": 2, "schema": 1}, {"kind": "isolated_node", "total": 10, "jcpn": 10, "graph": 10, "schema": 2}, {"kind": "missing_branch", "total": 2, "jcpn": 2, "graph": 2, "schema": 2}, {"kind": "unreachable_node", "total": 12, "jcpn": 12, "graph": 11, "schema": 2}, {"kind": "variable_constraint", "total": 9, "jcpn": 0, "graph": 1, "schema": 2}], "inject_report": {"missing_branch": ["dify_xiaohongshu_full: fail(no if node with a false branch edge to remove)", "n8n_ai_agent_tool", "n8n_clone_build_download: fail(no if node with a false branch edge to remove)", "n8n_daily_report: fail(no if node with a false branch edge to remove)", "n8n_demo_workflow: fail(no if node with a false branch edge to remove)", "n8n_langfuse_demo: fail(no if node with a false branch edge to remove)", "n8n_lead_followup", "n8n_loomcycle_tool: fail(no if node with a false branch edge to remove)", "n8n_multi_agent_research: fail(no if node with a false branch edge to remove)", "n8n_run_command_ephemeral: fail(no if node with a false branch edge to remove)", "n8n_slack_loop: fail(no if node with a false branch edge to remove)", "n8n_web_app_preview: fail(no if node with a false branch edge to remove)"], "isolated_node": ["dify_xiaohongshu_full", "n8n_ai_agent_tool", "n8n_clone_build_download", "n8n_daily_report", "n8n_demo_workflow: fail(no interior task node to isolate)", "n8n_langfuse_demo", "n8n_lead_followup", "n8n_loomcycle_tool", "n8n_multi_agent_research", "n8n_run_command_ephemeral: fail(no interior task node to isolate)", "n8n_slack_loop", "n8n_web_app_preview"], "unreachable_node": ["dify_xiaohongshu_full", "n8n_ai_agent_tool", "n8n_clone_build_download", "n8n_daily_report", "n8n_demo_workflow", "n8n_langfuse_demo", "n8n_lead_followup", "n8n_loomcycle_tool", "n8n_multi_agent_research", "n8n_run_command_ephemeral", "n8n_slack_loop", "n8n_web_app_preview"], "abnormal_loop": ["dify_xiaohongshu_full", "n8n_ai_agent_tool", "n8n_clone_build_download", "n8n_daily_report", "n8n_demo_workflow", "n8n_langfuse_demo", "n8n_lead_followup", "n8n_loomcycle_tool", "n8n_multi_agent_research", "n8n_run_command_ephemeral", "n8n_slack_loop", "n8n_web_app_preview"], "broken_message": ["dify_xiaohongshu_full: fail(no n8n message node to unpair)", "n8n_ai_agent_tool: fail(no n8n message node to unpair)", "n8n_clone_build_download: fail(no n8n message node to unpair)", "n8n_daily_report", "n8n_demo_workflow: fail(no n8n message node to unpair)", "n8n_langfuse_demo: fail(no n8n message node to unpair)", "n8n_lead_followup", "n8n_loomcycle_tool: fail(no n8n message node to unpair)", "n8n_multi_agent_research: fail(no n8n message node to unpair)", "n8n_run_command_ephemeral: fail(no n8n message node to unpair)", "n8n_slack_loop", "n8n_web_app_preview: fail(no n8n message node to unpair)"], "variable_constraint": ["dify_xiaohongshu_full", "n8n_ai_agent_tool", "n8n_clone_build_download", "n8n_daily_report", "n8n_demo_workflow: fail(need >=2 interior task nodes for data-domain conflict)", "n8n_langfuse_demo", "n8n_lead_followup", "n8n_loomcycle_tool", "n8n_multi_agent_research", "n8n_run_command_ephemeral: fail(need >=2 interior task nodes for data-domain conflict)", "n8n_slack_loop: fail(need >=2 interior task nodes for data-domain conflict)", "n8n_web_app_preview"]}, "mean_time_s": 0.0008};
+var res = DATA.results, by = DATA.by_type;
+var meths = ["schema", "graph", "jcpn"];
+var names = ["JSON Schema", "Graph static checker", "Proposed JCPN"];
+function chart(id, opt){ var c = echarts.init(document.getElementById(id)); c.setOption(opt); window.addEventListener('resize', function(){c.resize();}); }
+
+chart("cmp", {
+  title:{text:"三方法对比（真实平台数据，实测）",left:12,textStyle:{fontSize:14,color:"#e6edf6"}},
+  tooltip:{trigger:"axis",triggerOn:"mousemove|click",renderMode:"richText",confine:true},
+  legend:{top:34,textStyle:{fontSize:11,color:"#aeb7c6"}},
+  grid:{left:60,right:20,top:70,bottom:30,containLabel:true},
+  xAxis:{type:"category",data:names,axisLabel:{fontSize:11,color:"#aeb7c6"}},
+  yAxis:{type:"value",max:100,axisLabel:{fontSize:11,formatter:"{value}%"},splitLine:{lineStyle:{color:"#1d293b"}}},
+  series:[
+    {name:"Precision",type:"bar",barWidth:18,data:meths.map(function(m){return +(res[m].precision*100).toFixed(1);})},
+    {name:"Recall",type:"bar",barWidth:18,data:meths.map(function(m){return +(res[m].recall*100).toFixed(1);})},
+    {name:"F1",type:"bar",barWidth:18,data:meths.map(function(m){return +(res[m].f1*100).toFixed(1);})},
+    {name:"Accuracy",type:"bar",barWidth:18,data:meths.map(function(m){return +(res[m].accuracy*100).toFixed(1);})}
+  ]
+});
+
+chart("bytype", {
+  title:{text:"缺陷类型检出（JCPN / Graph / Schema）",left:12,textStyle:{fontSize:14,color:"#e6edf6"}},
+  tooltip:{trigger:"axis",triggerOn:"mousemove|click",renderMode:"richText",confine:true},
+  legend:{top:34,textStyle:{fontSize:11,color:"#aeb7c6"}},
+  grid:{left:110,right:20,top:70,bottom:30,containLabel:true},
+  xAxis:{type:"category",data:by.map(function(b){return b.kind;}),axisLabel:{fontSize:11,color:"#aeb7c6"}},
+  yAxis:{type:"value",minInterval:1,axisLabel:{fontSize:11},splitLine:{lineStyle:{color:"#1d293b"}}},
+  series:[
+    {name:"注入数",type:"bar",barWidth:14,data:by.map(function(b){return b.total;})},
+    {name:"JCPN",type:"bar",barWidth:14,data:by.map(function(b){return b.jcpn;})},
+    {name:"Graph",type:"bar",barWidth:14,data:by.map(function(b){return b.graph;})},
+    {name:"Schema",type:"bar",barWidth:14,data:by.map(function(b){return b.schema;})}
+  ]
+});
+
+chart("cm", {
+  title:{text:"JCPN 混淆矩阵（TP=39 FP=0 FN=9 TN=12）",left:12,textStyle:{fontSize:14,color:"#e6edf6"}},
+  tooltip:{trigger:"item",triggerOn:"mousemove|click",renderMode:"richText",confine:true,formatter:function(p){return p.seriesName+"<br/>"+p.name+": "+p.value;}},
+  grid:{left:70,right:20,top:50,bottom:30,containLabel:true},
+  xAxis:{type:"category",data:["预测有缺陷","预测无缺陷"],axisLabel:{fontSize:11,color:"#aeb7c6"}},
+  yAxis:{type:"category",data:["实际有缺陷","实际无缺陷"],axisLabel:{fontSize:11,color:"#aeb7c6"}},
+  series:[{
+    name:"计数",type:"heatmap",data:[
+      [0,0,39],[1,0,9],[0,1,0],[1,1,12]
+    ],label:{show:true,fontSize:16,color:"#fff"}
+  }]
+});
+</script>
+<div class="note">数据口径：真实平台工作流 6 个（n8n×5、Dify×1）经平台适配器转换为标准 JSON，负样本为 25 个受控注入（missing_branch / isolated_node / unreachable_node / abnormal_loop / broken_message / variable_constraint）。JCPN 除数据域类缺陷（variable_constraint，已知抽象局限）外全部检出，且对正常样本零误报。</div>
+</body>
+</html>

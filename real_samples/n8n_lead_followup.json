@@ -1,0 +1,343 @@
+{
+  "name": "Lead Follow-Up Automator",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lead-followup-automator",
+        "responseMode": "lastNode",
+        "responseData": "firstEntryJson",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "a0c9d861-3223-4f19-b27d-1bdb6c2ee001",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        40
+      ],
+      "webhookId": "7f8d4fe0-ec7c-4334-8f42-307d9f386b0e"
+    },
+    {
+      "parameters": {
+        "jsCode": "const incoming = $input.first().json; return [{json: {Name: 'x', status: 'ready'}}];"
+      },
+      "id": "b5e38541-369e-4261-95e8-9133b34d8001",
+      "name": "Normalize Lead",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        20,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "valid-lead-status",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "ready",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "11a19cb1-8d4c-44fd-9ca0-c2fe097fc001",
+      "name": "Lead Data Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        280,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "sheet",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Leads",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Name": "={{ $json.Name }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "c356c8fe-4e27-46db-a3c6-58dd252aa001",
+      "name": "Append Lead to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        560,
+        -80
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GOOGLE_SHEETS_CREDENTIAL",
+          "name": "YOUR_GOOGLE_SHEETS_CREDENTIAL"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $('Normalize Lead').first().json.Email }}",
+        "subject": "Welcome",
+        "emailType": "html",
+        "message": "={{ `<p>Hi ${$('Normalize Lead').first().json.Name}</p>` }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "de4ec8c4-e63d-42ad-965a-38b72b2ea001",
+      "name": "Send Gmail Welcome Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        840,
+        -80
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_GMAIL_CREDENTIAL",
+          "name": "YOUR_GMAIL_CREDENTIAL"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "authentication": "accessToken",
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#new-leads",
+          "mode": "name"
+        },
+        "messageType": "text",
+        "text": "New lead",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "id": "f418f4de-8e4e-4cbb-8136-0e09bc3ea001",
+      "name": "Notify Slack New Lead",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.5,
+      "position": [
+        1120,
+        -80
+      ],
+      "credentials": {
+        "slackApi": {
+          "id": "YOUR_SLACK_CREDENTIAL",
+          "name": "YOUR_SLACK_CREDENTIAL"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "normalizer-error",
+              "leftValue": "={{ $('Normalize Lead').first().json.error?.message || '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "sheets-error",
+              "leftValue": "={{ $('Append Lead to Google Sheets').first().json.error?.message || '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "a0a044df-ea2a-491b-a5cf-4de6c5805001",
+      "name": "Did Any Step Fail?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const errors = []; return [{json: {status: 'error_logged', errors}}];"
+      },
+      "id": "09b4e1a3-4786-4869-8bf4-a4745c246001",
+      "name": "Log Error Details",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const lead = $('Normalize Lead').first().json; return [{json: {status: 'success', lead}}];"
+      },
+      "id": "84ba5160-1124-4075-b997-94b6c9d1e001",
+      "name": "Return Success Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        40
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Normalize Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Lead": {
+      "main": [
+        [
+          {
+            "node": "Lead Data Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead Data Valid?": {
+      "main": [
+        [
+          {
+            "node": "Append Lead to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Error Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append Lead to Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Send Gmail Welcome Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Gmail Welcome Email": {
+      "main": [
+        [
+          {
+            "node": "Notify Slack New Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Slack New Lead": {
+      "main": [
+        [
+          {
+            "node": "Did Any Step Fail?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Did Any Step Fail?": {
+      "main": [
+        [
+          {
+            "node": "Log Error Details",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return Success Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
+  },
+  "staticData": null,
+  "pinData": {},
+  "active": false,
+  "versionId": "2e78c9f3-f4c2-47de-b072-17230fe04001"
+}

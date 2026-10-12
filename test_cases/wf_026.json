@@ -1,0 +1,48 @@
+{
+  "id": "wf_026",
+  "name": "loop with data-dependent exit",
+  "platform": "dify",
+  "nodes": [
+    {
+      "id": "t0",
+      "type": "task",
+      "name": "warm up"
+    },
+    {
+      "id": "t1",
+      "type": "task",
+      "name": "init counter"
+    },
+    {
+      "id": "lp",
+      "type": "while",
+      "condition": "counter < 10",
+      "body": {
+        "id": "t2",
+        "type": "task",
+        "name": "increment counter"
+      },
+      "exit": true,
+      "data_dependent": true
+    },
+    {
+      "id": "t3",
+      "type": "task",
+      "name": "finalize"
+    }
+  ],
+  "edges": [
+    {
+      "from": "t0",
+      "to": "t1"
+    },
+    {
+      "from": "t1",
+      "to": "lp"
+    },
+    {
+      "from": "lp",
+      "to": "t3"
+    }
+  ]
+}

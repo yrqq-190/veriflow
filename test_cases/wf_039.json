@@ -1,0 +1,66 @@
+{
+  "id": "wf_039",
+  "name": "multi-task then branch",
+  "platform": "n8n",
+  "nodes": [
+    {
+      "id": "h0",
+      "type": "task",
+      "name": "start"
+    },
+    {
+      "id": "h1",
+      "type": "if",
+      "condition": "eligible == true",
+      "then": [
+        {
+          "id": "h2",
+          "type": "task",
+          "name": "check docs"
+        },
+        {
+          "id": "h3",
+          "type": "task",
+          "name": "score"
+        },
+        {
+          "id": "h4",
+          "type": "task",
+          "name": "rank"
+        }
+      ],
+      "else": {
+        "id": "h5",
+        "type": "task",
+        "name": "not eligible"
+      }
+    },
+    {
+      "id": "h6",
+      "type": "task",
+      "name": "output"
+    }
+  ],
+  "edges": [
+    {
+      "from": "h0",
+      "to": "h1"
+    },
+    {
+      "from": "h2",
+      "to": "h3"
+    },
+    {
+      "from": "h3",
+      "to": "h4"
+    },
+    {
+      "from": "h4",
+      "to": "h6"
+    },
+    {
+      "from": "h5",
+      "to": "h6"
+    }
+  ]
+}

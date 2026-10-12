@@ -1,0 +1,73 @@
+{
+  "id": "wf_005",
+  "name": "conditional without else #5",
+  "platform": "coze",
+  "nodes": [
+    {
+      "id": "t5_0",
+      "type": "task",
+      "name": "step 1"
+    },
+    {
+      "id": "t5_1",
+      "type": "task",
+      "name": "step 2"
+    },
+    {
+      "id": "t5_2",
+      "type": "task",
+      "name": "step 3"
+    },
+    {
+      "id": "t5_3",
+      "type": "task",
+      "name": "step 4"
+    },
+    {
+      "id": "t5_4",
+      "type": "task",
+      "name": "step 5"
+    },
+    {
+      "id": "dec5",
+      "type": "if",
+      "condition": "check_5 == ok",
+      "then": {
+        "id": "then5",
+        "type": "task",
+        "name": "then action"
+      }
+    },
+    {
+      "id": "end5",
+      "type": "task",
+      "name": "finalize"
+    }
+  ],
+  "edges": [
+    {
+      "from": "t5_0",
+      "to": "t5_1"
+    },
+    {
+      "from": "t5_1",
+      "to": "t5_2"
+    },
+    {
+      "from": "t5_2",
+      "to": "t5_3"
+    },
+    {
+      "from": "t5_3",
+      "to": "t5_4"
+    },
+    {
+      "from": "t5_4",
+      "to": "dec5"
+    },
+    {
+      "from": "then5",
+      "to": "end5"
+    }
+  ]
+}

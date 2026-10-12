@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VeriFlow · NL → Verified Workflow</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div class="brand"><span>VERIFLOW</span><em>NL → JCPN</em><b>VERIFIED</b></div>
+        <div class="top-actions">
+          <button id="samplesButton" class="samples-button" data-i18n="samples">Samples &amp; pipeline</button>
+          <span class="connection"><i></i><span data-i18n="connected">Local engine online</span></span>
+          <button id="languageButton" class="language-button">中文 / EN</button>
+        </div>
+      </header>
+
+      <section class="workspace">
+        <div class="workspace-head">
+          <div>
+            <p class="eyebrow" data-i18n="conversation">CONVERSATION</p>
+            <h1 data-i18n="title">描述你想要的工作流</h1>
+          </div>
+          <button id="newChat" class="run-button" data-i18n="newChat">+ 新对话</button>
+        </div>
+        <div id="chat" class="chat">
+          <div class="message assistant">
+            <div class="avatar">AI</div>
+            <div class="bubble">
+              <small data-i18n="assistant">VERIFLOW 助手</small>
+              <p data-i18n="intro">把你想自动化的业务流程告诉我。我会规划步骤、构建 JCPN 模型并做形式化验证；发现缺陷时先和你确认再修复，最终交付一个验证通过的工作流。</p>
+            </div>
+          </div>
+        </div>
+        <div class="composer">
+          <textarea id="prompt" data-i18n-placeholder="placeholder" placeholder="描述要验证的工作流…"></textarea>
+          <div>
+            <span data-i18n="hint">回车发送 · Shift+Enter 换行</span>
+            <button id="sendButton" data-i18n="send">生成并验证 ↗</button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="run-panel">
+        <div class="run-panel-head">
+          <div><p class="eyebrow">RUN STATUS</p><h2 data-i18n="execution">验证流程</h2></div>
+          <span id="progressCount">0 / 10</span>
+        </div>
+        <ol id="steps" class="steps"></ol>
+        <div class="panel-footer">
+          <button id="detailsButton" class="details-button"><span>⌘</span><span data-i18n="details">查看建模细节</span></button>
+        </div>
+      </aside>
+    </main>
+
+    <section id="drawer" class="drawer" aria-hidden="true">
+      <div class="drawer-head">
+        <div><p class="eyebrow" data-i18n="transparent">验证依据</p><h2 data-i18n="details">建模与验证细节</h2></div>
+        <button id="closeDrawer" aria-label="Close">×</button>
+      </div>
+      <div class="tabs">
+        <button class="tab active" data-tab="json" data-i18n="jsonTab">JSON 中间表示</button>
+        <button class="tab" data-tab="cpn" data-i18n="cpnTab">JCPN 模型</button>
+        <button class="tab" data-tab="report" data-i18n="reportTab">验证报告</button>
+        <button class="tab" data-tab="graph" data-i18n="graphTab">工作流图</button>
+      </div>
+      <div class="tab-content active" id="json"><div class="code-head"><span data-i18n="normalized">工作流 JSON</span><span class="success" id="jsonStatus">—</span></div><pre id="jsonCode">—</pre></div>
+      <div class="tab-content" id="cpn"><div class="code-head"><span>JCPN · 库所/变迁/弧 + provenance μ</span><span class="success" id="cpnStats">—</span></div><div id="cpnGraph" class="net"><p class="empty">先运行一次生成，查看 JCPN 模型。</p></div><div id="muList" class="mu-list"></div></div>
+      <div class="tab-content" id="report"><div id="reportBody" class="report-body"><p class="empty">还没有运行验证。</p></div></div>
+      <div class="tab-content" id="graph"><div id="graphSvg" class="net"><p class="empty">先运行一次生成，查看工作流图。</p></div></div>
+    </section>
+
+    <section id="samplesModal" class="modal" aria-hidden="true">
+      <div class="modal-box">
+        <div class="modal-head">
+          <div><p class="eyebrow">EVIDENCE · DATA</p><h2 data-i18n="samplesTitle">真实样本与检测过程</h2></div>
+          <button id="closeSamples" aria-label="Close">×</button>
+        </div>
+        <div id="samplesBody" class="samples-body"><p class="empty">加载中…</p></div>
+      </div>
+    </section>
+
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

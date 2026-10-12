@@ -1,0 +1,46 @@
+{
+  "id": "wf_029",
+  "name": "decision with both branches",
+  "platform": "coze",
+  "nodes": [
+    {
+      "id": "p",
+      "type": "task",
+      "name": "load order"
+    },
+    {
+      "id": "chk",
+      "type": "if",
+      "condition": "paid == true",
+      "then": {
+        "id": "s1",
+        "type": "task",
+        "name": "ship order"
+      },
+      "else": {
+        "id": "s2",
+        "type": "task",
+        "name": "notify payment"
+      }
+    },
+    {
+      "id": "e",
+      "type": "task",
+      "name": "record"
+    }
+  ],
+  "edges": [
+    {
+      "from": "p",
+      "to": "chk"
+    },
+    {
+      "from": "s1",
+      "to": "e"
+    },
+    {
+      "from": "s2",
+      "to": "e"
+    }
+  ]
+}

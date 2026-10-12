@@ -1,0 +1,100 @@
+{
+  "name": "04 — n8n as a LoomCycle Tool (Vector 2)",
+  "nodes": [
+    {
+      "id": "node-mcp-trigger",
+      "name": "MCP Server Trigger",
+      "type": "@n8n/n8n-nodes-langchain.mcpTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        300
+      ],
+      "parameters": {
+        "path": "loomcycle-mailgun"
+      },
+      "notes": "Expose THIS workflow as an MCP server. The loomcycle agent then references mcp__n8n-mailgun__send in its allowed_tools (configured operator-side in loomcycle.yaml OR via the LoomCycle: MCP Server Register action node). Vector 2 of the integration RFC."
+    },
+    {
+      "id": "node-mailgun",
+      "name": "Send via Mailgun",
+      "type": "n8n-nodes-base.mailgun",
+      "typeVersion": 1,
+      "position": [
+        500,
+        300
+      ],
+      "parameters": {
+        "from": "={{ $json.from ?? 'no-reply@loomcycle.example' }}",
+        "to": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "text": "={{ $json.body }}"
+      },
+      "credentials": {
+        "mailgunApi": {
+          "id": "mailgun-creds",
+          "name": "Mailgun API"
+        }
+      }
+    },
+    {
+      "id": "node-respond",
+      "name": "Respond to Tool Call",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        800,
+        300
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ok",
+              "name": "ok",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "id",
+              "name": "message_id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "connections": {
+    "MCP Server Trigger": {
+      "main": [
+        [
+          {
+            "node": "Send via Mailgun",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send via Mailgun": {
+      "main": [
+        [
+          {
+            "node": "Respond to Tool Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "description": "Vector 2 of the RFC — expose this n8n workflow as an MCP server. Loomcycle agents call it as `mcp__n8n-mailgun__send`. Register the upstream side via `LoomCycle: MCP Server` action (Sub-phase 2.2) OR declare in loomcycle.yaml."
+  }
+}

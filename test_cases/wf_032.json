@@ -1,0 +1,54 @@
+{
+  "id": "wf_032",
+  "name": "paired message exchange",
+  "platform": "n8n",
+  "nodes": [
+    {
+      "id": "p0",
+      "type": "task",
+      "name": "initialize"
+    },
+    {
+      "id": "p1",
+      "type": "task",
+      "name": "build request"
+    },
+    {
+      "id": "m1",
+      "type": "message",
+      "name": "send api request",
+      "sender": "workflow",
+      "receiver": "webhook",
+      "platform": "n8n",
+      "pairing": "paired"
+    },
+    {
+      "id": "p2",
+      "type": "task",
+      "name": "process response"
+    },
+    {
+      "id": "p3",
+      "type": "task",
+      "name": "store result"
+    }
+  ],
+  "edges": [
+    {
+      "from": "p0",
+      "to": "p1"
+    },
+    {
+      "from": "p1",
+      "to": "m1"
+    },
+    {
+      "from": "m1",
+      "to": "p2"
+    },
+    {
+      "from": "p2",
+      "to": "p3"
+    }
+  ]
+}

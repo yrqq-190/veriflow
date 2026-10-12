@@ -1,0 +1,58 @@
+{
+  "id": "wf_024",
+  "name": "variable type mismatch #24",
+  "platform": "n8n",
+  "nodes": [
+    {
+      "id": "ok24",
+      "type": "task",
+      "name": "kickoff"
+    },
+    {
+      "id": "oa24",
+      "type": "task",
+      "name": "compute result",
+      "output": {
+        "type": "integer",
+        "name": "result_value"
+      }
+    },
+    {
+      "id": "ib24",
+      "type": "task",
+      "name": "consume result",
+      "input": {
+        "type": "string",
+        "name": "result_value"
+      }
+    },
+    {
+      "id": "oc24",
+      "type": "task",
+      "name": "archive"
+    },
+    {
+      "id": "od24",
+      "type": "task",
+      "name": "report"
+    }
+  ],
+  "edges": [
+    {
+      "from": "ok24",
+      "to": "oa24"
+    },
+    {
+      "from": "oa24",
+      "to": "ib24"
+    },
+    {
+      "from": "ib24",
+      "to": "oc24"
+    },
+    {
+      "from": "oc24",
+      "to": "od24"
+    }
+  ]
+}

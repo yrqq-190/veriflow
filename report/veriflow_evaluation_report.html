@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>VeriFlow · JCPN 工作流验证系统评估报告</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+         background: #f5f6f8; color: #1f2430; padding: 24px; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  header { display: flex; align-items: baseline; gap: 14px; margin-bottom: 18px; }
+  header h1 { font-size: 22px; font-weight: 700; letter-spacing: .5px; }
+  header .tag { font-size: 12px; color: #7a5cff; background: #efeaff;
+                padding: 4px 10px; border-radius: 20px; font-weight: 600; }
+  .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
+  .card { background: #fff; border-radius: 12px; padding: 16px 18px;
+          box-shadow: 0 1px 3px rgba(20,30,60,.06); }
+  .card .k { font-size: 12px; color: #8a90a0; margin-bottom: 6px; }
+  .card .v { font-size: 24px; font-weight: 700; }
+  .card .s { font-size: 12px; color: #8a90a0; margin-top: 4px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .panel { background: #fff; border-radius: 12px; padding: 16px 18px;
+           box-shadow: 0 1px 3px rgba(20,30,60,.06); }
+  .panel h2 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .panel .sub { font-size: 11px; color: #8a90a0; margin-bottom: 8px; }
+  .chart { width: 100%; height: 320px; }
+  .full { grid-column: 1 / -1; }
+  footer { margin-top: 16px; font-size: 11px; color: #a0a6b4; text-align: center; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; }
+                              .cards { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>VeriFlow · JCPN 工作流验证系统</h1>
+    <span class="tag">Formal Verification Report</span>
+  </header>
+
+  <div class="cards">
+    <div class="card"><div class="k">数据集</div><div class="v">50</div>
+      <div class="s">25 缺陷 / 25 正常（n8n·Dify·Coze）</div></div>
+    <div class="card"><div class="k">JCPN F1 score</div><div class="v">93.9%</div>
+      <div class="s">Precision 95.8% · Recall 92.0%</div></div>
+    <div class="card"><div class="k">准确率 Accuracy</div><div class="v">94.0%</div>
+      <div class="s">TP 23 · FP 1 · FN 2 · TN 24</div></div>
+    <div class="card"><div class="k">平均验证时间</div><div class="v">0.0006 s</div>
+      <div class="s">可达图分析（≤12 节点用例）</div></div>
+  </div>
+
+  <div class="grid">
+    <div class="panel"><h2>三方法检测性能对比</h2>
+      <div class="sub">JCPN 形式化验证 vs 图结构检查器 vs JSON Schema（F1 排序 93.9% &gt; 84.4% &gt; 68.4%）</div>
+      <div id="chart1" class="chart"></div></div>
+
+    <div class="panel"><h2>JCPN 混淆矩阵</h2>
+      <div class="sub">与论文 Table 5 一致：TP=23, FP=1, FN=2, TN=24</div>
+      <div id="chart2" class="chart"></div></div>
+
+    <div class="panel full"><h2>缺陷类型 × 方法检出数</h2>
+      <div class="sub">五种缺陷类型在各方法下的检出数量（总数 8 / 6 / 5 / 4 / 2）</div>
+      <div id="chart3" class="chart" style="height:300px"></div></div>
+
+    <div class="panel full"><h2>可扩展性：状态空间规模与验证时间</h2>
+      <div class="sub">线性+周期决策工作流（对应论文 Table 4 的规模测量口径）</div>
+      <div id="chart4" class="chart" style="height:300px"></div></div>
+  </div>
+
+  <footer>数据来源：veriflow/test_cases 50 个标注用例 · report.json（本页自动生成）</footer>
+</div>
+
+<script>
+var DATA = {"dataset": {"total": 50, "defective": 25, "clean": 25}, "results": {"jcpn": {"TP": 23, "FP": 1, "FN": 2, "TN": 24, "precision": 0.9583333333333334, "recall": 0.92, "f1": 0.9387755102040817, "accuracy": 0.94, "mean_time_s": 0.0006}, "graph": {"TP": 19, "FP": 1, "FN": 6, "TN": 24, "precision": 0.95, "recall": 0.76, "f1": 0.8444444444444444, "accuracy": 0.86, "mean_time_s": 0.0}, "schema": {"TP": 13, "FP": 0, "FN": 12, "TN": 25, "precision": 1.0, "recall": 0.52, "f1": 0.6842105263157895, "accuracy": 0.76, "mean_time_s": 0.0}}, "by_type": [{"kind": "missing_branch", "total": 8, "jcpn": 8, "graph": 8, "schema": 8}, {"kind": "isolated_node", "total": 6, "jcpn": 6, "graph": 6, "schema": 0}, {"kind": "abnormal_loop", "total": 5, "jcpn": 5, "graph": 5, "schema": 5}, {"kind": "broken_message", "total": 4, "jcpn": 4, "graph": 0, "schema": 0}, {"kind": "variable_constraint", "total": 2, "jcpn": 0, "graph": 0, "schema": 0}], "scalability": [{"nodes": 5, "places": 8, "transitions": 7, "states": 8, "time_s": 0.0}, {"nodes": 10, "places": 17, "transitions": 16, "states": 17, "time_s": 0.001}, {"nodes": 20, "places": 33, "transitions": 32, "states": 33, "time_s": 0.001}, {"nodes": 30, "places": 51, "transitions": 50, "states": 51, "time_s": 0.003}, {"nodes": 50, "places": 83, "transitions": 82, "states": 83, "time_s": 0.005}, {"nodes": 80, "places": 133, "transitions": 132, "states": 133, "time_s": 0.011}], "fp_cases": {"jcpn": [25], "graph": [33], "schema": []}, "fp_ids": {"jcpn": ["wf_026"], "graph": ["wf_034"], "schema": []}, "fn_ids": {"jcpn": ["wf_024", "wf_025"], "graph": ["wf_020", "wf_021", "wf_022", "wf_023", "wf_024", "wf_025"], "schema": ["wf_009", "wf_010", "wf_011", "wf_012", "wf_013", "wf_014", "wf_020", "wf_021", "wf_022", "wf_023", "wf_024", "wf_025"]}};
+
+var methods = [
+  { key: 'schema', name: 'JSON Schema' },
+  { key: 'graph', name: 'Graph static' },
+  { key: 'jcpn', name: 'JCPN' }
+];
+
+// 1. 三方法 P/R/F1/Acc 分组柱状图
+(function () {
+  var el = document.getElementById('chart1');
+  var chart = echarts.init(el);
+  var names = ['Precision', 'Recall', 'F1 score', 'Accuracy'];
+  var series = methods.map(function (m) {
+    var d = DATA.results[m.key];
+    return {
+      name: m.name,
+      type: 'bar',
+      data: [d.precision * 100, d.recall * 100, d.f1 * 100, d.accuracy * 100]
+    };
+  });
+  chart.setOption({
+    title: { text: '检测性能对比（%）', left: 'center', textStyle: { fontSize: 14 } },
+    tooltip: { trigger: 'axis', triggerOn: 'mousemove|click', renderMode: 'richText', confine: true,
+               valueFormatter: function (v) { return v + '%'; } },
+    legend: { top: 26, type: 'scroll' },
+    grid: { top: 70, left: 40, right: 20, bottom: 30, containLabel: true },
+    xAxis: { type: 'category', data: names, axisLabel: { fontSize: 12 } },
+    yAxis: { type: 'value', max: 100, axisLabel: { fontSize: 12, formatter: '{value}%' } },
+    series: series
+  });
+  window.addEventListener('resize', function () { chart.resize(); });
+})();
+
+// 2. JCPN 混淆矩阵热力图
+(function () {
+  var el = document.getElementById('chart2');
+  var chart = echarts.init(el);
+  var cm = DATA.results.jcpn;
+  var cells = [
+    [0, 0, cm.TP, 'TP 真阳'],
+    [0, 1, cm.FP, 'FP 假阳'],
+    [1, 0, cm.FN, 'FN 假阴'],
+    [1, 1, cm.TN, 'TN 真阴']
+  ];
+  chart.setOption({
+    title: { text: '判定 × 实际（JCPN）', left: 'center', textStyle: { fontSize: 14 } },
+    tooltip: { trigger: 'item', triggerOn: 'mousemove|click', renderMode: 'richText', confine: true,
+               formatter: function (p) {
+                 var c = cells[p.dataIndex];
+                 return c[3] + String.fromCharCode(10) + '数量: ' + c[2];
+               } },
+    grid: { top: 60, left: 60, right: 30, bottom: 40 },
+    xAxis: { type: 'category', data: ['实际含缺陷', '实际正常'], axisLabel: { fontSize: 12 } },
+    yAxis: { type: 'category', data: ['判定为缺陷', '判定为正常'], axisLabel: { fontSize: 12 } },
+    visualMap: { min: 0, max: 25, calculable: false, orient: 'horizontal',
+                 left: 'center', bottom: 0, itemWidth: 10, itemHeight: 70,
+                 textStyle: { fontSize: 10 }, text: ['多', '少'] },
+    series: [{
+      type: 'heatmap', data: cells.map(function (c) { return [c[0], c[1], c[2]]; }),
+      label: { show: true, fontSize: 16, fontWeight: 700,
+               formatter: function (p) { return p.value[2]; } },
+      itemStyle: { borderColor: '#fff', borderWidth: 2 }
+    }]
+  });
+  window.addEventListener('resize', function () { chart.resize(); });
+})();
+
+// 3. 缺陷类型 × 方法检出
+(function () {
+  var el = document.getElementById('chart3');
+  var chart = echarts.init(el);
+  var rows = DATA.by_type;
+  var names = rows.map(function (r) { return r.kind; });
+  var series = methods.map(function (m) {
+    var key = m.key === 'jcpn' ? 'jcpn' : (m.key === 'graph' ? 'graph' : 'schema');
+    return {
+      name: m.name,
+      type: 'bar',
+      barGap: '10%',
+      data: rows.map(function (r) { return r[key]; })
+    };
+  });
+  chart.setOption({
+    title: { text: '检出数量（按缺陷类型）', left: 'center', textStyle: { fontSize: 14 } },
+    tooltip: { trigger: 'axis', triggerOn: 'mousemove|click', renderMode: 'richText', confine: true },
+    legend: { top: 26 },
+    grid: { top: 70, left: 50, right: 20, bottom: 30, containLabel: true },
+    xAxis: { type: 'category', data: names, axisLabel: { fontSize: 11, rotate: 18 } },
+    yAxis: { type: 'value', minInterval: 1, axisLabel: { fontSize: 12 } },
+    series: series
+  });
+  window.addEventListener('resize', function () { chart.resize(); });
+})();
+
+// 4. 可扩展性折线（双轴：状态空间 + 时间）
+(function () {
+  var el = document.getElementById('chart4');
+  var chart = echarts.init(el);
+  var rows = DATA.scalability;
+  chart.setOption({
+    title: { text: '状态空间规模与验证时间随节点数增长', left: 'center', textStyle: { fontSize: 14 } },
+    tooltip: { trigger: 'axis', triggerOn: 'mousemove|click', renderMode: 'richText', confine: true },
+    legend: { top: 26 },
+    grid: { top: 70, left: 50, right: 60, bottom: 30, containLabel: true },
+    xAxis: { type: 'category', data: rows.map(function (r) { return r.nodes + ' 节点'; }),
+             axisLabel: { fontSize: 12 } },
+    yAxis: [
+      { type: 'value', name: '状态空间', axisLabel: { fontSize: 12 } },
+      { type: 'value', name: '时间 (s)', min: 0, axisLabel: { fontSize: 12 } }
+    ],
+    series: [
+      { name: '状态空间', type: 'line', symbolSize: 7, lineStyle: { width: 2 },
+        data: rows.map(function (r) { return r.states; }) },
+      { name: '验证时间 (s)', type: 'line', symbolSize: 7, lineStyle: { width: 2 },
+        yAxisIndex: 1, data: rows.map(function (r) { return r.time_s; }) }
+    ]
+  });
+  window.addEventListener('resize', function () { chart.resize(); });
+})();
+</script>
+</body>
+</html>

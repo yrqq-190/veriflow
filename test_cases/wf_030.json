@@ -1,0 +1,48 @@
+{
+  "id": "wf_030",
+  "name": "normal loop with exit",
+  "platform": "coze",
+  "nodes": [
+    {
+      "id": "i",
+      "type": "task",
+      "name": "open session"
+    },
+    {
+      "id": "lp2",
+      "type": "while",
+      "condition": "session active",
+      "body": {
+        "id": "b",
+        "type": "task",
+        "name": "poll message"
+      },
+      "exit": true,
+      "data_dependent": false
+    },
+    {
+      "id": "f",
+      "type": "task",
+      "name": "close session"
+    },
+    {
+      "id": "f2",
+      "type": "task",
+      "name": "cleanup session"
+    }
+  ],
+  "edges": [
+    {
+      "from": "i",
+      "to": "lp2"
+    },
+    {
+      "from": "lp2",
+      "to": "f"
+    },
+    {
+      "from": "f",
+      "to": "f2"
+    }
+  ]
+}

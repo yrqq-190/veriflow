@@ -1,0 +1,46 @@
+{
+  "id": "wf_011",
+  "name": "workflow with isolated node #11",
+  "platform": "coze",
+  "nodes": [
+    {
+      "id": "a11_0",
+      "type": "task",
+      "name": "start task"
+    },
+    {
+      "id": "a11_1",
+      "type": "task",
+      "name": "fetch record"
+    },
+    {
+      "id": "a11_2",
+      "type": "task",
+      "name": "validate fields"
+    },
+    {
+      "id": "a11_3",
+      "type": "task",
+      "name": "update state"
+    },
+    {
+      "id": "a11_4",
+      "type": "task",
+      "name": "orphaned activity"
+    }
+  ],
+  "edges": [
+    {
+      "from": "a11_0",
+      "to": "a11_1"
+    },
+    {
+      "from": "a11_1",
+      "to": "a11_2"
+    },
+    {
+      "from": "a11_2",
+      "to": "a11_3"
+    }
+  ]
+}
