@@ -109,6 +109,7 @@ def _llm_explain(wf: Dict[str, Any], repairs: List[Dict[str, Any]],
             "messages": [{"role": "system", "content": system},
                          {"role": "user", "content": user}],
             "temperature": 0.3,
+            "max_tokens": 300,
         }).encode("utf-8")
         req = urllib.request.Request(endpoint.rstrip("/") + "/chat/completions",
                                      data=body, method="POST",

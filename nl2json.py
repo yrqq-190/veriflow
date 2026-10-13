@@ -348,6 +348,7 @@ def llm_json(text: str, api_key: Optional[str] = None,
         "messages": [{"role": "system", "content": system},
                      {"role": "user", "content": text}],
         "temperature": 0.2,
+        "max_tokens": 1200,
     }).encode("utf-8")
     req = urllib.request.Request(url, data=body, method="POST",
                                  headers={"Content-Type": "application/json",

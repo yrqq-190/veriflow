@@ -330,6 +330,16 @@
   // ---------------------------------------------------------------------
   function renderReport(verify, repairs) {
     var html = "";
+    var stats = verify.stats || {};
+    // 证据卡片：无论是否有缺陷都显示可达图统计
+    html += '<div class="report-card" style="margin-bottom:12px"><div>' +
+      '<h3 style="margin:0 0 8px 0">' + esc(lang === "en" ? "Verification evidence" : "验证证据") + '</h3>' +
+      '<table style="width:100%;font-size:13px;border-collapse:collapse">' +
+      '<tr><td style="padding:3px 16px 3px 0;color:#888">' + esc(lang === "en" ? "Reachability states" : "可达图状态数") + '</td><td><b>' + (stats["|RG|"] || "-") + '</b></td>' +
+      '<td style="padding:3px 16px 3px 0;color:#888">' + esc(lang === "en" ? "Places/Transitions/Arcs" : "库所/变迁/弧") + '</td><td><b>' + (stats["|P|"] || "-") + ' / ' + (stats["|T|"] || "-") + ' / ' + (stats["|A|"] || "-") + '</b></td></tr>' +
+      '<tr><td style="padding:3px 16px 3px 0;color:#888">' + esc(lang === "en" ? "Fired transitions" : "已触发变迁") + '</td><td><b>' + (stats.fired_transitions || "-") + '</b></td>' +
+      '<td style="padding:3px 16px 3px 0;color:#888">' + esc(lang === "en" ? "Preprocess errors" : "预处理错误") + '</td><td><b>' + (stats.preprocess_errors || 0) + '</b></td></tr>' +
+      '</table></div></div>';
     if (verify && verify.defects && verify.defects.length) {
       verify.defects.forEach(function (d) {
         var srcs = (d.sources || []).join(", ");
@@ -337,12 +347,12 @@
         html += '<div class="report-card danger"><span>!</span><div>' +
           "<h3>" + esc(defectName(d.type)) + "</h3>" +
           "<p>" + esc(d.detail || "") + "</p>" +
-          "<p><b>source:</b> " + esc(src) + "</p></div></div>";
+          "<p><b>" + esc(lang === "en" ? "Source node" : "源节点") + ":</b> " + esc(src) + "</p></div></div>";
       });
     } else {
       html += '<div class="report-card"><span>✓</span><div><h3>' +
         esc(lang === "en" ? "Verification passed" : "验证通过") +
-        "</h3><p>" + esc(lang === "en" ? "All reachable states terminate or reach a completion marking. No defects detected." : "所有可达状态均终止或到达完成标识，未发现缺陷。") + "</p></div></div>";
+        "</h3><p>" + esc(lang === "en" ? "All reachable states terminate or reach a completion marking. 5 defect classes checked: unreachable node, unexpected deadlock, non-termination cycle, broken message, variable constraint." : "所有可达状态均终止或到达完成标识。已检查 5 类缺陷：不可达节点、意外死锁、非终止循环、断裂消息、变量约束。") + "</p></div></div>";
     }
     reportBody.innerHTML = html;
   }
