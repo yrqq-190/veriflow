@@ -280,12 +280,12 @@ class JCPNBuilder:
         need_then = has_nested_then or "true" in branches
         need_else = has_nested_else or "false" in branches
 
-        if need_else:
-            p_else = f"p_else_{nid}"
-            self._add_place(p_else, THETA_COND)
-            self._add_arc(t_cond, p_else, "c=false")
-            places.add(p_else)
-            arcs.add((t_cond, p_else))
+        # 即使缺 else 分支也建 p_else，让可达图能走到"条件不满足但无后续"的状态 → 触发死锁
+        p_else = f"p_else_{nid}"
+        self._add_place(p_else, THETA_COND)
+        self._add_arc(t_cond, p_else, "c=false")
+        places.add(p_else)
+        arcs.add((t_cond, p_else))
 
         # 决策变迁标记
         self.model._split_transitions.add(t_cond)

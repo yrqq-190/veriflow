@@ -34,7 +34,7 @@ def _find_edge(wf: Dict[str, Any], from_: str, branch: Optional[str] = None) -> 
 
 
 def inject_missing_branch(wf: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:
-    """删除 if 的 false 分支边 → 条件为假时无后继（缺失 else 分支）"""
+    """删除 if 的 false 边 + 嵌套 else 字段 → 条件为假时无后继"""
     w = _clone(wf)
     for n in w["nodes"]:
         if n.get("type") != "if":
@@ -42,6 +42,10 @@ def inject_missing_branch(wf: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:
         e = _find_edge(w, n["id"], branch="false")
         if e is not None:
             w["edges"] = [x for x in w["edges"] if x is not e]
+            n.pop("else", None)
+            return w, "missing_branch"
+        if n.get("else") is not None:
+            n.pop("else", None)
             return w, "missing_branch"
     raise ValueError("no if node with a false branch edge to remove")
 
