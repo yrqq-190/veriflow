@@ -77,6 +77,58 @@ def _true_branch_merge_point(wf: Dict[str, Any], if_id: str) -> Optional[str]:
         seen.add(cur)
 
 
+def _llm_explain(wf: Dict[str, Any], repairs: List[Dict[str, Any]],
+                 defects: List[Dict[str, Any]]) -> None:
+    """用 LLM 把机械的修复建议改成人话（仅改 description，不改 action）。失败静默。"""
+    import os
+    api_key = os.environ.get("DEEPSEEK_API_KEY") or os.environ.get("OPENAI_API_KEY")
+    if not api_key or not repairs:
+        return
+    try:
+        import json as _json
+        import urllib.request
+        endpoint = os.environ.get("DEEPSEEK_BASE_URL") or "https://api.deepseek.com/v1"
+        model = os.environ.get("DEEPSEEK_MODEL") or "deepseek-chat"
+        # 只解释 auto=True 的修复，manual 的跳过
+        auto_repairs = [r for r in repairs if r["auto"]]
+        if not auto_repairs:
+            return
+        defect_brief = [{"type": d["type"], "sources": d.get("sources", []),
+                         "path": d.get("path", [])[:5]} for d in defects[:5]]
+        repair_brief = [{"id": r["repair_id"], "defect": r["defect_type"],
+                          "action": r["action"], "node": r["source_id"]}
+                         for r in auto_repairs]
+        system = (
+            "你是工作流修复助手。基于形式化验证发现的缺陷，把系统给出的机械修复动作"
+            "改写成一段对用户友好的中文解释（不超过 60 字），说明：为什么这个节点有问题、"
+            "系统将怎么修、修完之后流程会怎样。直接输出 JSON，key 是 repair_id，value 是解释文本。"
+        )
+        user = f"工作流节点：{[n['name'] for n in wf['nodes']]}\n缺陷：{defect_brief}\n修复：{repair_brief}"
+        body = _json.dumps({
+            "model": model,
+            "messages": [{"role": "system", "content": system},
+                         {"role": "user", "content": user}],
+            "temperature": 0.3,
+        }).encode("utf-8")
+        req = urllib.request.Request(endpoint.rstrip("/") + "/chat/completions",
+                                     data=body, method="POST",
+                                     headers={"Content-Type": "application/json",
+                                              "Authorization": f"Bearer {api_key}"})
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            data = _json.loads(resp.read().decode("utf-8"))
+        content = data["choices"][0]["message"]["content"]
+        import re
+        m = re.search(r"\{.*\}", content, re.S)
+        if m:
+            explanations = _json.loads(m.group(0))
+            for r in repairs:
+                if r["repair_id"] in explanations:
+                    r["llm_note"] = explanations[r["repair_id"]]
+    except Exception:
+        # LLM 解释失败不影响主流程
+        pass
+
+
 def suggest_repairs(wf: Dict[str, Any],
                     verify_result: Dict[str, Any]) -> List[Dict[str, Any]]:
     """由验证结果生成修复建议列表（绝不直接修改 wf，应用由 apply_repairs 完成）。"""
@@ -234,6 +286,9 @@ def suggest_repairs(wf: Dict[str, Any],
                 push("abnormal_loop", nid, "enable_exit",
                      f"循环节点「{nid}」无出口（exit≠true，结构扫描定位）：置 "
                      "exit=true 并补 exit 分支边，使循环具备终止路径", 0.8, True)
+
+    # LLM 润色修复建议（可选，失败静默）
+    _llm_explain(wf, repairs, verify_result.get("defects", []))
 
     return repairs
 
