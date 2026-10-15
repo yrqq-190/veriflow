@@ -1,0 +1,243 @@
+{
+  "n_bases": 25,
+  "platform": {
+    "n8n": 8,
+    "Dify": 17
+  },
+  "n_cases": 50,
+  "results": {
+    "jcpn": {
+      "tp": 25,
+      "fp": 0,
+      "fn": 0,
+      "tn": 25,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "accuracy": 1.0
+    },
+    "graph": {
+      "tp": 15,
+      "fp": 0,
+      "fn": 10,
+      "tn": 25,
+      "precision": 1.0,
+      "recall": 0.6,
+      "f1": 0.7499999999999999,
+      "accuracy": 0.8
+    },
+    "schema": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 25,
+      "tn": 25,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "accuracy": 0.5
+    }
+  },
+  "by_type": [
+    {
+      "kind": "missing_branch",
+      "total": 5,
+      "jcpn": 5,
+      "graph": 5,
+      "schema": 0
+    },
+    {
+      "kind": "isolated_node",
+      "total": 5,
+      "jcpn": 5,
+      "graph": 5,
+      "schema": 0
+    },
+    {
+      "kind": "abnormal_loop",
+      "total": 5,
+      "jcpn": 5,
+      "graph": 5,
+      "schema": 0
+    },
+    {
+      "kind": "broken_message",
+      "total": 5,
+      "jcpn": 5,
+      "graph": 0,
+      "schema": 0
+    },
+    {
+      "kind": "variable_constraint",
+      "total": 5,
+      "jcpn": 5,
+      "graph": 0,
+      "schema": 0
+    }
+  ],
+  "jcpn_fp": [],
+  "jcpn_fn": [],
+  "graph_fn": [
+    "difyaws_andrew_translation_agent#variable_constraint",
+    "n8n_daily_report#variable_constraint",
+    "difyaws_term_based_translation_workflow#variable_constraint",
+    "n8n_multi_agent_research#variable_constraint",
+    "n8n_web_app_preview#variable_constraint",
+    "dify_diarization#broken_message",
+    "difyaws_ASR_Transcribe#broken_message",
+    "difyaws_Sagemaker-Bge-Rerank#broken_message",
+    "difyaws_mcp_server_integration#broken_message",
+    "difyaws_svg_designer#broken_message"
+  ],
+  "bases": [
+    {
+      "file": "dify_sentiment.yml",
+      "platform": "Dify",
+      "nodes": 6,
+      "injected": "missing_branch"
+    },
+    {
+      "file": "n8n_lead_followup.json",
+      "platform": "n8n",
+      "nodes": 9,
+      "injected": "missing_branch"
+    },
+    {
+      "file": "difyaws_edu_question_gen.yml",
+      "platform": "Dify",
+      "nodes": 9,
+      "injected": "missing_branch"
+    },
+    {
+      "file": "n8n_ai_agent_tool.json",
+      "platform": "n8n",
+      "nodes": 12,
+      "injected": "missing_branch"
+    },
+    {
+      "file": "difyaws_rag_based_chatbot_for_nextcloud.yml",
+      "platform": "Dify",
+      "nodes": 9,
+      "injected": "missing_branch"
+    },
+    {
+      "file": "difyaws_andrew_translation_agent.yml",
+      "platform": "Dify",
+      "nodes": 5,
+      "injected": "variable_constraint"
+    },
+    {
+      "file": "n8n_daily_report.json",
+      "platform": "n8n",
+      "nodes": 5,
+      "injected": "variable_constraint"
+    },
+    {
+      "file": "difyaws_term_based_translation_workflow.yml",
+      "platform": "Dify",
+      "nodes": 5,
+      "injected": "variable_constraint"
+    },
+    {
+      "file": "n8n_multi_agent_research.json",
+      "platform": "n8n",
+      "nodes": 5,
+      "injected": "variable_constraint"
+    },
+    {
+      "file": "n8n_web_app_preview.json",
+      "platform": "n8n",
+      "nodes": 5,
+      "injected": "variable_constraint"
+    },
+    {
+      "file": "difyaws_sagemaker_rerank_workflow.yml",
+      "platform": "Dify",
+      "nodes": 6,
+      "injected": "isolated_node"
+    },
+    {
+      "file": "n8n_clone_build_download.json",
+      "platform": "n8n",
+      "nodes": 6,
+      "injected": "isolated_node"
+    },
+    {
+      "file": "difyaws_s3_rag.yml",
+      "platform": "Dify",
+      "nodes": 7,
+      "injected": "isolated_node"
+    },
+    {
+      "file": "dify_xiaohongshu_full.yml",
+      "platform": "Dify",
+      "nodes": 8,
+      "injected": "isolated_node"
+    },
+    {
+      "file": "difyaws_AgentCore-Memory-2.yml",
+      "platform": "Dify",
+      "nodes": 8,
+      "injected": "isolated_node"
+    },
+    {
+      "file": "n8n_loomcycle_tool.json",
+      "platform": "n8n",
+      "nodes": 3,
+      "injected": "abnormal_loop"
+    },
+    {
+      "file": "difyaws_rag_based_bot_with_tts.yml",
+      "platform": "Dify",
+      "nodes": 8,
+      "injected": "abnormal_loop"
+    },
+    {
+      "file": "n8n_slack_loop.json",
+      "platform": "n8n",
+      "nodes": 3,
+      "injected": "abnormal_loop"
+    },
+    {
+      "file": "difyaws_generate_image_video.yml",
+      "platform": "Dify",
+      "nodes": 13,
+      "injected": "abnormal_loop"
+    },
+    {
+      "file": "difyaws_chat-with-browser.yml",
+      "platform": "Dify",
+      "nodes": 15,
+      "injected": "abnormal_loop"
+    },
+    {
+      "file": "dify_diarization.yaml",
+      "platform": "Dify",
+      "nodes": 3,
+      "injected": "broken_message"
+    },
+    {
+      "file": "difyaws_ASR_Transcribe.yml",
+      "platform": "Dify",
+      "nodes": 3,
+      "injected": "broken_message"
+    },
+    {
+      "file": "difyaws_Sagemaker-Bge-Rerank.yml",
+      "platform": "Dify",
+      "nodes": 3,
+      "injected": "broken_message"
+    },
+    {
+      "file": "difyaws_mcp_server_integration.yml",
+      "platform": "Dify",
+      "nodes": 3,
+      "injected": "broken_message"
+    },
+    {
+      "file": "difyaws_svg_designer.yml",
+      "platform": "Dify",
+      "nodes": 3,
+      "injected": "broken_message"
+    }
+  ]
+}

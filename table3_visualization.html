@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VeriFlow · 真实平台数据评估（Table 3）</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+<style>
+  :root{
+    --bg:#f5f7fa; --card:#ffffff; --ink:#1f2937; --muted:#6b7280;
+    --line:#e5e7eb; --jcpn:#1a7a5c; --graph:#2f6fb0; --schema:#9aa5b1;
+    --accent:#0e6394;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;line-height:1.6;}
+  .wrap{max-width:1120px;margin:0 auto;padding:32px 24px 64px;}
+  header h1{font-size:24px;margin:0 0 6px;}
+  header .sub{color:var(--muted);font-size:14px;}
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:24px 0;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:18px 20px;box-shadow:0 1px 2px rgba(16,24,40,.04);}
+  .card h3{margin:0 0 2px;font-size:15px;font-weight:600;}
+  .card .tag{font-size:12px;color:var(--muted);margin-bottom:10px;}
+  .card .f1{font-size:34px;font-weight:700;letter-spacing:-1px;}
+  .card .meta{font-size:12px;color:var(--muted);margin-top:4px;}
+  .card.jcpn{border-top:3px solid var(--jcpn);}
+  .card.jcpn .f1{color:var(--jcpn);}
+  .card.graph{border-top:3px solid var(--graph);}
+  .card.graph .f1{color:var(--graph);}
+  .card.schema{border-top:3px solid var(--schema);}
+  .card.schema .f1{color:var(--schema);}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:20px 22px;margin:18px 0;box-shadow:0 1px 2px rgba(16,24,40,.04);}
+  .panel h2{font-size:17px;margin:0 0 4px;}
+  .panel .note{font-size:13px;color:var(--muted);margin:0 0 12px;}
+  .chart{width:100%;height:380px;}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px;}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:center;}
+  th{background:#f0f4f8;font-weight:600;}
+  td.l,th.l{text-align:left;}
+  .best{color:var(--jcpn);font-weight:700;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+  .foot{font-size:12px;color:var(--muted);margin-top:24px;}
+  .pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;
+    background:#eef3f8;color:var(--accent);margin-right:6px;}
+  @media(max-width:820px){.cards,.grid2{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>VeriFlow 真实平台数据评估结果</h1>
+    <div class="sub">
+      <span class="pill">n8n × 8</span><span class="pill">Dify × 17</span>
+      25 个真实干净底版（3–30 节点），每个保留 1 个干净版本并受控注入 1 个缺陷 →
+      <b>50 个评测样本</b>。所有数值实跑生成，未沿用论文原报告数据。
+    </div>
+  </header>
+
+  <div class="cards">
+    <div class="card schema">
+      <h3>B1 · JSON Schema</h3>
+      <div class="tag">语法 / 字段约束</div>
+      <div class="f1">0.0%</div>
+      <div class="meta">F1 · 对行为缺陷 Recall = 0</div>
+    </div>
+    <div class="card graph">
+      <h3>B2 · Graph static checker</h3>
+      <div class="tag">可达性 / 度 / 分支 / SCC / 消息</div>
+      <div class="f1">75.0%</div>
+      <div class="meta">F1 · Precision 100% / Recall 60%</div>
+    </div>
+    <div class="card jcpn">
+      <h3>Proposed · JCPN</h3>
+      <div class="tag">可达图 + 消息配对 + 数据颜色</div>
+      <div class="f1">100%</div>
+      <div class="meta">F1 · Precision 100% / Recall 100%</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>图 1 · 三种方法整体指标对比</h2>
+    <p class="note">JSON Schema 仅做语法校验，无法识别语义缺陷；JCPN 全面优于两种基线。</p>
+    <div id="chart1" class="chart"></div>
+  </div>
+
+  <div class="grid2">
+    <div class="panel">
+      <h2>图 2 · 五类缺陷检出数</h2>
+      <p class="note">每类注入 5 个；Graph 无法识别消息配对与数据颜色，Schema 全部漏检。</p>
+      <div id="chart2" class="chart" style="height:340px;"></div>
+    </div>
+    <div class="panel">
+      <h2>图 3 · JCPN 混淆矩阵</h2>
+      <p class="note">25 个注入缺陷全部检出，25 个干净底版零误报。</p>
+      <div id="chart3" class="chart" style="height:340px;"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>表 1 · 方法对比明细</h2>
+    <table>
+      <thead><tr><th class="l">Method</th><th>Precision</th><th>Recall</th><th>F1</th><th>Accuracy</th></tr></thead>
+      <tbody>
+        <tr><td class="l">B1 JSON Schema validation</td><td>0.0%</td><td>0.0%</td><td>0.0%</td><td>50.0%</td></tr>
+        <tr><td class="l">B2 Graph-based static checker</td><td>100.0%</td><td>60.0%</td><td>75.0%</td><td>80.0%</td></tr>
+        <tr><td class="l best">Proposed: JCPN verification</td><td class="best">100%</td><td class="best">100%</td><td class="best">100%</td><td class="best">100%</td></tr>
+      </tbody>
+    </table>
+    <p class="foot" style="margin-top:14px;">
+      边界说明：100% 为受控注入结果（每类缺陷均在检测能力覆盖范围内）；真实模板上的复杂结构
+      （如 iteration 迭代节点）仍需人工复核。数据颜色约束（variable_constraint）当前为轻量实现，
+      仅在显式类型标注下校验相邻边颜色一致，不建模完整数据域传播。
+    </p>
+  </div>
+
+  <p class="foot">VeriFlow · JCPN-based workflow formal verification prototype · 数据来源：n8n / Dify 公开导出模板（GitHub 官方与社区仓库）</p>
+</div>
+
+<script>
+const C_JCPN='#1a7a5c', C_GRAPH='#2f6fb0', C_SCHEMA='#9aa5b1';
+const baseGrid={left:48,right:24,top:60,bottom:40};
+const axisLabel={color:'#374151',fontSize:12};
+
+// 图1
+echarts.init(document.getElementById('chart1')).setOption({
+  tooltip:{trigger:'axis',axisPointer:{type:'shadow'}},
+  legend:{top:6,textStyle:{fontSize:12}},
+  grid:baseGrid,
+  xAxis:{type:'category',data:['Precision','Recall','F1 score','Accuracy'],axisLabel:axisLabel},
+  yAxis:{type:'value',max:100,axisLabel:{formatter:'{value}%',color:'#374151'},splitLine:{lineStyle:{color:'#eef0f3'}}},
+  series:[
+    {name:'B1 JSON Schema',type:'bar',data:[0,0,0,50],itemStyle:{color:C_SCHEMA},barWidth:22},
+    {name:'B2 Graph static',type:'bar',data:[100,60,75,80],itemStyle:{color:C_GRAPH},barWidth:22},
+    {name:'JCPN',type:'bar',data:[100,100,100,100],itemStyle:{color:C_JCPN},barWidth:22,
+      label:{show:true,position:'top',formatter:'{c}%',color:C_JCPN,fontSize:11,fontWeight:600}}
+  ]
+});
+
+// 图2
+echarts.init(document.getElementById('chart2')).setOption({
+  tooltip:{trigger:'axis',axisPointer:{type:'shadow'}},
+  legend:{top:0,textStyle:{fontSize:11}},
+  grid:{left:10,right:12,top:42,bottom:80},
+  xAxis:{type:'category',
+    data:['Missing\nbranch','Isolated\nnode','Abnormal\nloop','Broken\nmessage','Variable\nconstraint'],
+    axisLabel:{color:'#374151',fontSize:11,interval:0}},
+  yAxis:{type:'value',max:5,minInterval:1,splitLine:{lineStyle:{color:'#eef0f3'}}},
+  series:[
+    {name:'JCPN',type:'bar',data:[5,5,5,5,5],itemStyle:{color:C_JCPN},barWidth:18},
+    {name:'Graph',type:'bar',data:[5,5,5,0,0],itemStyle:{color:C_GRAPH},barWidth:18},
+    {name:'Schema',type:'bar',data:[0,0,0,0,0],itemStyle:{color:C_SCHEMA},barWidth:18}
+  ]
+});
+
+// 图3 混淆矩阵
+echarts.init(document.getElementById('chart3')).setOption({
+  tooltip:{position:'top',formatter:p=>`${p.name}<br/>样本数: ${p.value[2]}`},
+  grid:{left:110,right:40,top:40,bottom:70},
+  xAxis:{type:'category',data:['实际: 有缺陷','实际: 无缺陷'],axisLabel:{fontSize:12}},
+  yAxis:{type:'category',data:['判定: 无缺陷','判定: 有缺陷'],axisLabel:{fontSize:12},inverse:true},
+  visualMap:{show:false,min:0,max:25,inRange:{color:['#eef4f1',C_JCPN]}},
+  series:[{
+    type:'heatmap',
+    data:[[0,1,25],[1,1,0],[0,0,0],[1,0,25]],
+    label:{show:true,formatter:p=>{const m={[0+'_'+1]:'TP = 25',[1+'_'+1]:'FP = 0',[0+'_'+0]:'FN = 0',[1+'_'+0]:'TN = 25'};return m[p.value[0]+'_'+p.value[1]];},
+      fontSize:14,fontWeight:'bold',color:'#1f2937'},
+    itemStyle:{borderColor:'#fff',borderWidth:2}
+  }]
+});
+
+window.addEventListener('resize',()=>{
+  document.querySelectorAll('.chart').forEach(el=>{const i=echarts.getInstanceByDom(el);if(i)i.resize();});
+});
+</script>
+</body>
+</html>

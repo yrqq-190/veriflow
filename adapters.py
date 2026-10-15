@@ -230,11 +230,15 @@ def parse_dify(dsl_text: str, source: str = "") -> Dict[str, Any]:
     graph = data.get("workflow", {}).get("graph", {})
     nodes: List[Dict[str, Any]] = []
     edges: List[Dict[str, Any]] = []
+    if_node_ids: set = set()
 
     for n in graph.get("nodes", []):
         d = n.get("data", {})
         nid = str(n.get("id") or d.get("id") or "")
         if not nid:
+            continue
+        # custom-note 是画布注释/便签，不是可执行节点，跳过
+        if n.get("type") == "custom-note" or d.get("type") == "custom-note":
             continue
         t = d.get("type", "")
         title = d.get("title", t)
@@ -244,12 +248,14 @@ def parse_dify(dsl_text: str, source: str = "") -> Dict[str, Any]:
             std = {"id": nid, "type": "task", "name": title}
         elif t == _DIFY_IF:
             std = {"id": nid, "type": "if", "name": title, "guard": _dify_guard(d)}
+            if_node_ids.add(nid)
         elif t in _DIFY_ITERATION:
             std = {"id": nid, "type": "while", "name": title, "exit": True,
                    "loop_hint": t, "body": None}
         elif t == _DIFY_ANSWER:
             std = {"id": nid, "type": "message", "name": title,
-                   "pairing": "send_only", "platform": "dify", "direction": "out"}
+                   "sender": "bot", "pairing": "send_only",
+                   "platform": "dify", "direction": "out"}
         else:
             std = {"id": nid, "type": "task", "name": title}
         nodes.append(std)
@@ -261,7 +267,16 @@ def parse_dify(dsl_text: str, source: str = "") -> Dict[str, Any]:
         if not src or not tgt:
             continue
         sh = e.get("sourceHandle") if e.get("sourceHandle") is not None else d.get("sourceHandle")
-        branch = "true" if sh == "true" else ("false" if sh == "false" else None)
+        if sh == "true":
+            branch = "true"
+        elif sh == "false":
+            branch = "false"
+        elif str(src) in if_node_ids and sh not in (None, "source", ""):
+            # Dify if-else 的额外 case 以 case UUID 作为 sourceHandle；
+            # 二分支 JCPN 下降维归到 else 侧（c=false 互斥分支）
+            branch = "false"
+        else:
+            branch = None
         edges.append({"from": str(src), "to": str(tgt), "branch": branch})
 
     return {

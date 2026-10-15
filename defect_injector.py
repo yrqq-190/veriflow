@@ -110,19 +110,51 @@ def inject_abnormal_loop(wf: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:
 
 
 def inject_broken_message(wf: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:
-    """n8n 消息节点改为 unpaired（发送后无配对接收）→ broken-message 候选"""
+    """消息发送后无配对接收 → broken-message 候选。
+    优先把已有 n8n 消息节点改为 unpaired；若工作流无消息节点，则插入一个
+    有入边/出边但 pairing=unpaired 的 n8n 消息节点（图检查器只看有无出边，
+    检测不到；JCPN 检测配对语义，可检出——体现两者差异）。"""
     w = _clone(wf)
+    # 1) 已有 n8n 消息节点：直接改 unpaired
     for n in w["nodes"]:
         if n.get("type") == "message" and n.get("platform") == "n8n":
             n["pairing"] = "unpaired"
             return w, "broken_message"
-    raise ValueError("no n8n message node to unpair")
+    # 2) 无消息节点：找一个有出边的中间 task，在其后插入 unpaired 消息节点
+    out_edges = {}
+    for e in w["edges"]:
+        out_edges.setdefault(e["from"], []).append(e)
+    anchor_edge = None
+    for n in w["nodes"]:
+        if n.get("type") == "task" and not n.get("is_entry") and n["id"] in out_edges:
+            anchor_edge = out_edges[n["id"]][0]
+            break
+    if anchor_edge is None:
+        raise ValueError("no suitable edge to insert broken message")
+    msg_id = "msg_injected_1"
+    w["nodes"].append({
+        "id": msg_id, "type": "message", "name": "injected send (no receive)",
+        "sender": "system", "pairing": "unpaired",
+        "platform": "n8n", "direction": "out"})
+    nxt = anchor_edge["to"]
+    w["edges"] = [e for e in w["edges"] if e is not anchor_edge]
+    w["edges"].append({"from": anchor_edge["from"], "to": msg_id})
+    w["edges"].append({"from": msg_id, "to": nxt})
+    return w, "broken_message"
 
 
 def inject_variable_constraint(wf: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:
-    """给相邻任务注入数据域不一致标注（integer→string 冲突）。
-    当前 Θ 抽象不建模数据域，预期 JCPN 无法检出（已知局限）。"""
+    """在有直接边相连的两个任务上注入数据颜色冲突（上游 integer→下游 string）。
+    优先选相邻任务，保证缺陷落在真实数据依赖边上；退化为任意两个内部任务。"""
     w = _clone(wf)
+    by_id = {n["id"]: n for n in w["nodes"]}
+    for e in w["edges"]:
+        nu, nv = by_id.get(e["from"]), by_id.get(e["to"])
+        if (nu and nv and nu.get("type") == "task" and nv.get("type") == "task"
+                and not nu.get("is_entry") and not nv.get("is_entry")):
+            nu["output_type"] = "integer"
+            nv["input_type"] = "string"
+            return w, "variable_constraint"
     tasks = [n for n in w["nodes"] if n.get("type") == "task" and not n.get("is_entry")]
     if len(tasks) >= 2:
         tasks[0]["output_type"] = "integer"

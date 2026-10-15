@@ -21,6 +21,47 @@ from __future__ import annotations
 from typing import Any, Dict, List, Set, Tuple
 
 
+def _tarjan_scc(succ: Dict[str, List[str]], nodes: List[str]) -> List[List[str]]:
+    """Tarjan 强连通分量（迭代栈，避免递归深度问题）。"""
+    index, low, onstack = {}, {}, set()
+    stack: List[str] = []
+    sccs: List[List[str]] = []
+    counter = [0]
+    for root in nodes:
+        if root in index:
+            continue
+        work = [(root, iter(succ.get(root, [])))]
+        index[root] = low[root] = counter[0]; counter[0] += 1
+        stack.append(root); onstack.add(root)
+        while work:
+            v, it = work[-1]
+            advanced = False
+            for w in it:
+                if w not in index:
+                    index[w] = low[w] = counter[0]; counter[0] += 1
+                    stack.append(w); onstack.add(w)
+                    work.append((w, iter(succ.get(w, []))))
+                    advanced = True
+                    break
+                elif w in onstack:
+                    low[v] = min(low[v], index[w])
+            if advanced:
+                continue
+            work.pop()
+            if low[v] == index[v]:
+                comp = []
+                while True:
+                    w = stack.pop(); onstack.discard(w)
+                    comp.append(w)
+                    if w == v:
+                        break
+                sccs.append(comp)
+            if work:
+                parent = work[-1][0]
+                low[parent] = min(low[parent], low[v])
+    return sccs
+
+
 def graph_based_static_checker(workflow: dict) -> set:
     """
     结构-only 检查。返回缺陷集合，元素为 (defect_type, node_id)。
@@ -80,14 +121,32 @@ def graph_based_static_checker(workflow: dict) -> set:
             if "else" not in n and not has_false_edge:
                 defects.add(("missing_branch", n["id"]))
 
-    # 4. 无出口循环（while 无出边）
+    # 4. 无出口循环
+    # 4a. 显式声明：while 节点未标注 exit（节点级控制流声明）
     for n in nodes:
-        if n.get("type") == "while" and out_deg[n["id"]] == 0:
+        if n.get("type") == "while" and n.get("exit") is not True:
             defects.add(("abnormal_loop", n["id"]))
+    # 4b. SCC 分析：存在环且该强连通分量无出边到外部 → 非终止循环风险
+    ordered = list(node_ids)
+    for comp in _tarjan_scc(succ, ordered):
+        self_loop = len(comp) == 1 and comp[0] in succ.get(comp[0], [])
+        is_cycle = len(comp) > 1 or self_loop
+        if not is_cycle:
+            continue
+        compset = set(comp)
+        has_exit = any(w not in compset for v in comp for w in succ.get(v, []))
+        if not has_exit:
+            defects.add(("abnormal_loop", comp[0]))
 
-    # 5. 消息断裂（消息节点无出边：发送后流程无后继）
+    # 5. 消息断裂（消息节点无出边）。
+    # 公平性修正：Dify/Coze 的 answer 类节点是单向回复型终端（send_only + out，
+    # 向用户输出即合法结束），无出边正常，不报；仅对期望配对（unpaired）或
+    # 非回复型消息的无后继报告。注意：有出边但缺配对接收的消息仍无法由此
+    # 结构检查识别（需 JCPN 消息配对语义）。
     for n in nodes:
         if n.get("type") == "message" and out_deg[n["id"]] == 0:
+            if n.get("pairing") == "send_only" and n.get("direction") == "out":
+                continue
             defects.add(("broken_message", n["id"]))
 
     return defects
@@ -97,21 +156,22 @@ def graph_based_static_checker(workflow: dict) -> set:
 # JSON Schema 基线（字段 / 引用 / 类型约束）
 # ---------------------------------------------------------------------------
 
+# 标准化中间表示采用扁平边模式（分支/循环体由 edges.branch 表达），
+# 故 B1 只要求节点自身的最小字段；分支完整性、循环出口等行为结构不在此检查。
 REQUIRED_FIELDS: Dict[str, List[str]] = {
     "task":    ["id", "type", "name"],
     "message": ["id", "type", "name", "sender"],
-    "if":      ["id", "type", "condition", "then"],
-    "while":   ["id", "type", "condition", "body"],
+    "if":      ["id", "type", "name"],
+    "while":   ["id", "type", "name"],
 }
 VALID_TYPES = {"task", "message", "if", "while"}
 
 
 def json_schema_checker(workflow: dict) -> set:
     """
-    JSON Schema 风格验证：必填字段、节点类型枚举、ID 唯一性、边引用完整性，
-    以及平台 schema 级约束：if 必须声明 else 分支、while 必须声明有效出口。
-    递归覆盖嵌套节点（then/else/body）。缺陷注入的用例保持 JSON 语法有效，
-    因此该基线只捕获字段层面的缺口。
+    纯 JSON Schema 基线（B1）：仅必填字段、节点类型枚举、ID 唯一性、边引用
+    完整性等语法/字段约束。不含分支完整性、while 出口、可达性、消息配对等行为
+    约束（属 B2 / JCPN）。注入缺陷保持 JSON 语法有效，故该基线对语义缺陷为 FN。
     """
     defects: Set[Tuple[str, str]] = set()
     nodes = workflow.get("nodes", [])
@@ -145,11 +205,8 @@ def json_schema_checker(workflow: dict) -> set:
             if f not in n:
                 defects.add(("schema_missing_field", f"{nid}.{f}"))
 
-        # 平台 schema 级约束（字段完整性，非执行语义）
-        if ntype == "if" and "else" not in n:
-            defects.add(("schema_missing_else", nid))
-        if ntype == "while" and not (n.get("exit") is True):
-            defects.add(("schema_missing_exit", nid))
+        # 纯 JSON Schema 基线只做字段/枚举/引用约束；
+        # if 分支完整性、while 出口等行为约束属于 B2 图检查器 / JCPN，不在此检查。
 
     for e in edges:
         if e.get("from") not in seen:

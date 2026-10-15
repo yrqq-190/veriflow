@@ -372,6 +372,34 @@ def detect_broken_message(model: JCPNModel) -> List[Dict[str, Any]]:
     return findings
 
 
+def detect_variable_constraint(workflow: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """
+    Θ_data 颜色集一致性检查（§3.2.3 / Definition 3-3 的 C:P→Θ 颜色分配）：
+    沿控制流边，上游任务输出的数据颜色（output_type）必须与下游任务声明的
+    输入颜色（input_type）匹配；不匹配即变量约束缺陷（variable-constraint error）。
+    仅在节点显式标注类型时检查（平台未标注则不臆测）；当前为轻量类型检查，
+    不建模完整的数据域传播与变量作用域。
+    """
+    findings = []
+    by_id = {n.get("id"): n for n in workflow.get("nodes", [])}
+    for e in workflow.get("edges", []):
+        u, v = e.get("from"), e.get("to")
+        nu, nv = by_id.get(u), by_id.get(v)
+        if not nu or not nv:
+            continue
+        ot = nu.get("output_type")
+        it = nv.get("input_type")
+        if ot and it and ot != it:
+            findings.append({
+                "type": "variable_constraint",
+                "source_id": v,
+                "kind": "task",
+                "detail": f"data color mismatch: '{u}' produces {ot} "
+                          f"while '{v}' requires {it}",
+            })
+    return findings
+
+
 # ===========================================================================
 # 3. 验证主入口
 # ===========================================================================
@@ -393,7 +421,8 @@ def verify_workflow(raw_workflow: Dict[str, Any],
     findings = (detect_unreachable_nodes(rg, model)
                 + detect_deadlocks(rg, model)
                 + detect_non_termination(rg, model)
-                + detect_broken_message(model))
+                + detect_broken_message(model)
+                + detect_variable_constraint(workflow))
 
     elapsed = time.perf_counter() - t0
     stats = {

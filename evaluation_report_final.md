@@ -1,9 +1,9 @@
 # VeriFlow 缺陷检测端到端评测报告
 
-- 生成时间：2026-10-13 15:08:36
+- 生成时间：2026-10-15 15:32:10
 - 测试样本数：23（干净 3 + 注入 18 + 刁难 2）
-- JCPN 形式化验证：TP=8  FP=0  FN=12  TN=3
-- Precision=100.0%  Recall=40.0%  F1=57.1%
+- JCPN 形式化验证：TP=13  FP=0  FN=7  TN=3
+- Precision=100.0%  Recall=65.0%  F1=78.8%
 
 ## 逐案例结果
 
@@ -16,20 +16,20 @@
 | [注入] 请假审批 | isolated_node (isolated_node) | isolated_node | ✗ 漏检:['unreachable_node', 'unreachable_node', 'unexpected_deadlock'] | ✓ | 5 |
 | [注入] 请假审批 | unreachable_node (unreachable_node) | unreachable_node | ✓ 检出 | ✓ | 5 |
 | [注入] 请假审批 | abnormal_loop (abnormal_loop) | abnormal_loop | ✓ 检出 | ✓ | 2 |
-| [注入] 请假审批 | broken_message (跳过:no n8n message node to unpair) | broken_message | — | — | 0 |
+| [注入] 请假审批 | broken_message (broken_message) | broken_message | ✓ 检出 | ✓ | 8 |
 | [注入] 请假审批 | variable_constraint (variable_constraint) | variable_constraint | ✗ 漏检:[] | ✓ | 7 |
 | [注入] 订单处理 | missing_branch (missing_branch) | missing_branch | ✓ 检出 | ✓ | 7 |
 | [注入] 订单处理 | isolated_node (isolated_node) | isolated_node | ✗ 漏检:['unreachable_node', 'unreachable_node'] | ✓ | 5 |
 | [注入] 订单处理 | unreachable_node (unreachable_node) | unreachable_node | ✓ 检出 | ✓ | 6 |
 | [注入] 订单处理 | abnormal_loop (abnormal_loop) | abnormal_loop | ✓ 检出 | ✓ | 2 |
-| [注入] 订单处理 | broken_message (跳过:no n8n message node to unpair) | broken_message | — | — | 0 |
-| [注入] 订单处理 | variable_constraint (variable_constraint) | variable_constraint | ✗ 漏检:[] | ✓ | 7 |
+| [注入] 订单处理 | broken_message (broken_message) | broken_message | ✓ 检出 | ✓ | 8 |
+| [注入] 订单处理 | variable_constraint (variable_constraint) | variable_constraint | ✓ 检出 | ✓ | 7 |
 | [注入] 报销流程 | missing_branch (跳过:no if node with a false branch edge to remove) | missing_branch | — | — | 0 |
 | [注入] 报销流程 | isolated_node (isolated_node) | isolated_node | ✗ 漏检:['unreachable_node', 'unreachable_node', 'unreachable_node', 'unreachable_node', 'unreachable_node', 'unexpected_deadlock'] | ✓ | 1 |
 | [注入] 报销流程 | unreachable_node (unreachable_node) | unreachable_node | ✓ 检出 | ✓ | 4 |
-| [注入] 报销流程 | abnormal_loop (abnormal_loop) | abnormal_loop | ✓ 检出 | ✗ | 2 |
-| [注入] 报销流程 | broken_message (跳过:no n8n message node to unpair) | broken_message | — | — | 0 |
-| [注入] 报销流程 | variable_constraint (variable_constraint) | variable_constraint | ✗ 漏检:[] | ✗ | 5 |
+| [注入] 报销流程 | abnormal_loop (abnormal_loop) | abnormal_loop | ✓ 检出 | ✓ | 2 |
+| [注入] 报销流程 | broken_message (broken_message) | broken_message | ✓ 检出 | ✗ | 6 |
+| [注入] 报销流程 | variable_constraint (variable_constraint) | variable_constraint | ✓ 检出 | ✗ | 5 |
 | [刁难] 嵌套if缺else | 手动构造 | 见说明 | defects=[] | defects=[] | 8 |
 | [刁难] 循环里发消息无接收 | 手动构造 | 见说明 | defects=[] | defects=[] | 5 |
 
