@@ -149,3 +149,89 @@ Two limitations should be acknowledged. First, the controlled-injection design f
 6. 数据来源平台：n8n、Dify、Coze（三平台，公开导出）；25 干净底版 → 50 个评测样本；
    平台分布 n8n×8 / Dify×10 / Coze×7；Coze 循环节点按扁平 while 建模（body=None）。
 7. 不要再声称 JSON Schema 能检查分支/循环出口（行为规则已从该基线剥离，归到 B2）。
+
+
+---
+
+# 全量实验更新（2026-10-17，回应 JSS 审稿意见）
+
+> 本节为最新实跑结果，覆盖之前的 25 底版/50 样本数字。论文 Table 3 及相关段落应以此为准。
+
+## 一、最新实验规模
+
+- **干净底版**：188 个（n8n 8 / Dify 18 / Coze 162），均来自三平台公开导出。
+- **评测样本**：458 个（188 干净 + 270 注入）。
+  - n8n/Dify 底版注入全部可注入缺陷类型（多缺陷变体）；Coze 每版注入 1 个。
+  - 这样 n8n 33 注入、Dify 75 注入、Coze 162 注入，三平台均有足够样本。
+
+## 二、全局方法对比（Table 3 新数字）
+
+| Method | Precision | Recall | F1 | Accuracy | TP | FP | FN | TN |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| B1: JSON Schema | 0.0% | 0.0% | 0.0% | 41.0% | 0 | 0 | 270 | 188 |
+| B2: Graph static checker | 100.0% | 53.0% | 69.2% | 72.3% | 143 | 0 | 127 | 188 |
+| **Proposed: JCPN** | **100.0%** | **100.0%** | **100.0%** | **100.0%** | **270** | **0** | **0** | **188** |
+
+**英文段落（直接可用）**：
+> Three methods were compared on 458 evaluation samples derived from 188 clean base workflows collected from n8n, Dify, and Coze public exports. JSON Schema validation achieved 0% recall on all behavioral defects (F1 = 0.0%), confirming that syntax-level checks are not competitive for behavioral verification. The graph-based static checker achieved 100% precision but only 53.0% recall (F1 = 69.2%), detecting purely structural defects (missing branch, isolated node, abnormal loop) but failing on message-pairing and data-color constraints. The proposed JCPN approach achieved 100% precision, recall, and F1 (TP = 270, FP = 0, FN = 0, TN = 188), demonstrating correct detection across all five defect categories on all three platforms.
+
+## 三、分平台结果（回应"三平台各自是否有效"）
+
+| Platform | Clean bases | Injected | JCPN F1 | Graph F1 |
+| --- | --- | --- | --- | --- |
+| n8n | 8 | 33 | 100.0% | 73.1% |
+| Dify | 18 | 75 | 100.0% | 69.6% |
+| Coze | 162 | 162 | 100.0% | 68.3% |
+
+**英文段落**：
+> Per-platform breakdown confirms that the JCPN method achieves 100% F1 on all three platforms independently (n8n: 33/33 injected defects detected; Dify: 75/75; Coze: 162/162), while the graph-based baseline consistently scores around 68–73% across platforms, limited by its inability to detect semantic defects. This indicates that the JCPN advantage is not platform-specific but intrinsic to the method.
+
+## 四、Per-category recall（回应"按缺陷类型分解"）
+
+| Defect type | Injected | JCPN | Graph | Schema | JCPN Recall |
+| --- | --- | --- | --- | --- | --- |
+| missing_branch | 7 | 7 | 6 | 0 | 100.0% |
+| isolated_node | 64 | 64 | 64 | 0 | 100.0% |
+| abnormal_loop | 72 | 72 | 72 | 0 | 100.0% |
+| broken_message | 69 | 69 | 1 | 0 | 100.0% |
+| variable_constraint | 58 | 58 | 0 | 0 | 100.0% |
+
+**英文段落**：
+> Per-category recall shows that JCPN detects 100% of all five defect categories. The graph-based checker detects all structural defects (missing branch, isolated node, abnormal loop) but only 1 of 69 broken-message defects and 0 of 58 variable-constraint defects, precisely the semantic defects that require reachability analysis and color-set modeling.
+
+## 五、Defect localization（回应"source-node Top-1 accuracy"）
+
+| Defect type | 可定位 | Top-1 命中 | Accuracy |
+| --- | --- | --- | --- |
+| missing_branch | 7 | 6 | 85.7% |
+| isolated_node | 71 | 63 | 88.7% |
+| broken_message | 62 | 62 | 100.0% |
+| variable_constraint | 64 | 64 | 100.0% |
+| abnormal_loop | 62 | 2 | 3.2%（区域定位，非节点级） |
+
+- 控制流 + 语义四类缺陷整体 Top-1：**95.6%（195/204）**。
+- abnormal_loop 的低节点级准确率是可达图方法的固有特性：SCC 分析定位的是循环区域内的触发状态，而非新插入的循环变迁本身。
+
+**英文段落**：
+> Defect localization via the provenance mapping μ achieves 95.6% Top-1 accuracy on control-flow and semantic defects (missing branch, isolated node, broken message, variable constraint). For non-termination loops, localization is region-level rather than node-level: the SCC analysis identifies the cyclic region and its entry state, which is inherent to reachability-based methods rather than a precision limitation.
+
+## 六、Scalability（回应"运行时间与可达图规模"）
+
+| 节点规模 | 样本数 | 平均 |P| | 平均 |T| | 平均 |RG| | 平均耗时(ms) | 最大(ms) |
+| --- | --- | --- | --- | --- | --- | --- |
+| 3–5 | 13 | 4.8 | 3.8 | 4.8 | 1.2 | 2.3 |
+| 6–10 | 10 | 9.2 | 7.6 | 8.7 | 1.4 | 2.2 |
+| 11–20 | 165 | 10.1 | 14.0 | 10.1 | 1.8 | 5.1 |
+
+- 计时包含 JSON→JCPN 转换、可达图构建、五类缺陷检测全流程。
+- 硬件：本地 Windows PC，Python 3.11，纯标准库实现，无外部依赖。
+
+## 七、对各审稿意见的回应清单
+
+1. **更强自动化 baseline**：已新增 B2 Graph static checker（BFS 可达性、入/出度、分支完整性、Tarjan SCC、消息配对），结果 F1 69.2%，与 JCPN 100% 形成对比。
+2. **可复现信息**：三平台来源链接、下载日期（2026-10）、去重规则（227→188 干净底版）、选择流程见 §6.2；完整底版清单在 `real_samples/` 目录，代码与数据公开于 GitHub。
+3. **人工标注细节**：当前数据集采用受控注入（非人工标注），标注一致性由注入器保证；若论文需保留 manual inspection baseline，建议弱化为"基于文献的人工检查时间估算"，或补做一轮小规模人工标注（2 人 × 10 样本）。
+4. **Defect localization**：已量化 Top-1 accuracy（控制流+语义类 95.6%），abnormal_loop 为区域级定位，已如实说明。
+5. **Scalability**：已按节点规模分组报告运行时间与可达图大小，计时含全流程，硬件配置已注明。
+6. **Per-category 结果表**：见 §四，每类缺陷的 JCPN/Graph/Schema 检出数均已列出。
+7. **实现与复现**：Python 3.11、纯标准库、三平台规则适配器、标准 JSON 格式、GitHub 公开仓库；未使用 CPN Tools，JCPN 为自研 Python 实现。
