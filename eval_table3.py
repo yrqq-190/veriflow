@@ -12,7 +12,7 @@ VeriFlow 论文 Table 3 真实数据评估
 import glob, os, sys, io, json
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
-from adapters import parse_dify, parse_n8n
+from adapters import parse_dify, parse_n8n, parse_coze
 from preprocess import preprocess
 from verification import verify_workflow
 from graph_static_checker import graph_based_static_checker, json_schema_checker
@@ -25,6 +25,18 @@ DEFECTS = ["missing_branch", "isolated_node", "abnormal_loop",
 PER_KIND = 5
 NMIN, NMAX = 3, 30
 
+def _load_any(path, fn):
+    if fn.startswith("coze_"):
+        return parse_coze(json.load(open(path, encoding="utf-8")), fn)
+    if path.endswith(".json"):
+        return parse_n8n(json.load(open(path, encoding="utf-8")), fn)
+    return parse_dify(open(path, encoding="utf-8").read(), fn)
+
+def _plat_of(fn):
+    if fn.startswith("coze_"):
+        return "Coze"
+    return "n8n" if fn.endswith(".json") else "Dify"
+
 
 def load_clean():
     """加载并筛出 JCPN 验证干净的底版（3-30 节点）"""
@@ -36,18 +48,14 @@ def load_clean():
         if fn.startswith("save_"):
             continue
         try:
-            if f.endswith(".json"):
-                std = parse_n8n(json.load(open(f, encoding="utf-8")), fn)
-            else:
-                std = parse_dify(open(f, encoding="utf-8").read(), fn)
+            std = _load_any(f, fn)
         except Exception as e:
             print("PARSE FAIL", fn, e)
             continue
         v = verify_workflow(preprocess(std)["workflow"])
         n = len(std["nodes"])
         if not v["defects"] and NMIN <= n <= NMAX:
-            plat = "n8n" if fn.endswith(".json") else "Dify"
-            cand[fn] = {"wf": std, "n": n, "plat": plat}
+            cand[fn] = {"wf": std, "n": n, "plat": _plat_of(fn)}
     return cand
 
 
@@ -71,14 +79,15 @@ def assign_bases(cand):
         injectable[d] = fns
     # 平台交替重排：把 n8n / Dify 交错
     def interleave(fns):
-        n8 = [f for f in fns if cand[f]["plat"] == "n8n"]
-        di = [f for f in fns if cand[f]["plat"] == "Dify"]
-        out, i, j = [], 0, 0
-        while i < len(n8) or j < len(di):
-            if j < len(di):
-                out.append(di[j]); j += 1
-            if i < len(n8):
-                out.append(n8[i]); i += 1
+        groups = {"n8n": [], "Dify": [], "Coze": []}
+        for f in fns:
+            groups[cand[f]["plat"]].append(f)
+        out, idxs = [], {"n8n": 0, "Dify": 0, "Coze": 0}
+        order = ["Dify", "n8n", "Coze"]
+        while any(idxs[k] < len(groups[k]) for k in order):
+            for k in order:
+                if idxs[k] < len(groups[k]):
+                    out.append(groups[k][idxs[k]]); idxs[k] += 1
         return out
     for d in injectable:
         injectable[d] = interleave(injectable[d])
@@ -141,10 +150,7 @@ def scan_natural():
         if fn.startswith("save_"):
             continue
         try:
-            if f.endswith(".json"):
-                std = parse_n8n(json.load(open(f, encoding="utf-8")), fn)
-            else:
-                std = parse_dify(open(f, encoding="utf-8").read(), fn)
+            std = _load_any(f, fn)
         except Exception:
             continue
         v = verify_workflow(preprocess(std)["workflow"])
@@ -178,7 +184,8 @@ def main():
 
     n8n_n = sum(1 for m in base_meta if m["platform"] == "n8n")
     dify_n = sum(1 for m in base_meta if m["platform"] == "Dify")
-    print(f"底版：{len(base_meta)}（n8n {n8n_n} / Dify {dify_n}），评测样本 {len(cases)}")
+    coze_n = sum(1 for m in base_meta if m["platform"] == "Coze")
+    print(f"底版：{len(base_meta)}（n8n {n8n_n} / Dify {dify_n} / Coze {coze_n}），评测样本 {len(cases)}")
 
     def jcpn_fn(wf):
         return verify_workflow(preprocess(wf)["workflow"])["defects"]
@@ -199,7 +206,7 @@ def main():
     A("")
     A("> 数据集：n8n / Dify 公开导出的**真实生产模板**。选取 25 个 JCPN 验证干净的底版，")
     A(f"> 每个底版保留 1 个干净版本并受控注入 1 个缺陷，共 **50 个评测样本**。")
-    A(f"> 底版节点数 {NMIN}–{NMAX}，平台分布 n8n×{n8n_n}、Dify×{dify_n}。")
+    A(f"> 底版节点数 {NMIN}–{NMAX}，平台分布 n8n×{n8n_n}、Dify×{dify_n}、Coze×{coze_n}。")
     A("> 所有数值为本次实跑结果，不沿用论文原报告数据。")
     A("")
     A("## 1. 方法对比（Table 3）")
@@ -263,7 +270,7 @@ def main():
     A("- **JCPN**：在可达图与 provenance 回溯基础上，额外建模消息配对（n8n unpaired）与 Θ_data 数据颜色一致性，因此五类缺陷均可检出。")
     A("- variable_constraint 当前为轻量类型检查：仅在节点显式声明 input_type/output_type 时校验相邻边颜色一致，不建模完整数据域传播与变量作用域，属后续工作。")
     A("- 表中 100% 为受控注入（每类缺陷均在检测能力内）下的结果；真实模板上的复杂缺陷仍需人工复核，见 §6。")
-    A("- Coze：工作流导出受付费套餐限制，公开渠道无 DSL 样例，本轮未纳入；适配器 parse_coze 已就绪。")
+    A("- Coze：样本来自 Hammer1/cozeworkflows 公开导出（191 个官方 zip），经 parse_coze 解析后纳入数据集；循环/批处理节点按扁平 while 建模，循环体不嵌套（body=None），为已标注的建模局限。")
 
     md = "table3_report.md"
     open(os.path.join(BASE, md), "w", encoding="utf-8").write("\n".join(L))
@@ -271,7 +278,7 @@ def main():
     print(f"\n[written] {md}")
 
     payload = {
-        "n_bases": len(base_meta), "platform": {"n8n": n8n_n, "Dify": dify_n},
+        "n_bases": len(base_meta), "platform": {"n8n": n8n_n, "Dify": dify_n, "Coze": coze_n},
         "n_cases": len(cases),
         "results": {
             "jcpn": {k: v for k, v in jcpn.items() if k in

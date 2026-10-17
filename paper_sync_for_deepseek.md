@@ -60,8 +60,9 @@ testing 给出"为何不作为主对照"的说明。这是最稳妥的回应方�
 ### 2.4 真实数据集（这是重点，替换原稿的合成数据描述）
 - 从 **n8n 和 Dify** 公开导出的真实生产模板采集（GitHub 官方/社区仓库；
   其中 21 个 Dify DSL 来自 `aws-samples/dify-aws-tool`，MIT-0 许可）。
-- 共采集 **36 个真实工作流**（n8n 11、Dify 25）；Coze 因工作流导出属于付费功能、
-  公开渠道无 DSL，未纳入（适配器 `parse_coze` 已按规范实现，留作未来数据）。
+- 共采集 **191 个 Coze 真实工作流导出**（Hammer1/cozeworkflows 公开仓库，官方 zip），
+  连同 n8n 11、Dify 25 一起，三平台合计采集 227 个真实工作流；
+  最终入选 **25 个干净底版：n8n 8 / Dify 10 / Coze 7**（3–30 节点）。
 - 选取其中 **25 个通过 JCPN 验证的干净底版**（节点数 3–30；平台分布 n8n 8、Dify 17），
   覆盖审批、RAG 问答、LLM Agent、翻译、代码解释、图像/视频生成、MCP、通知等。
 - 对每个底版保留 1 个干净版本、并注入 **1 个**受控缺陷，得到 **50 个评测样本**。
@@ -118,9 +119,9 @@ The graph-based static checker is deliberately a strong baseline: it incorporate
 ### 3.2 Dataset 段落（替换原稿关于 50 个模板与标注的段落）
 
 **【英文正文】**
-The evaluation dataset was constructed from public workflow templates collected from n8n and Dify. Templates were retained when they provided explicit node types and explicit control-flow relations; after removing non-executable canvas artifacts and duplicate cases, 36 real exported workflows (11 from n8n, 25 from Dify) were collected, spanning approval flows, retrieval-augmented question answering, LLM agents, translation, code interpretation, image/video generation, MCP integrations, and notification workflows. Coze workflows were not included because workflow export is restricted to paid plans and no DSL sample is publicly available; the Coze adapter is implemented according to the platform specification and reserved for future data.
+The evaluation dataset was constructed from public workflow templates collected from n8n and Dify. Templates were retained when they provided explicit node types and explicit control-flow relations; after removing non-executable canvas artifacts and duplicate cases, 36 real exported workflows (11 from n8n, 25 from Dify) were collected, spanning approval flows, retrieval-augmented question answering, LLM agents, translation, code interpretation, image/video generation, MCP integrations, and notification workflows. Coze workflows were collected from a public repository of exported workflow archives (Hammer1/cozeworkflows, 191 official export zips); the Coze adapter maps the platform's numeric node-type encoding (start/end/LLM/plugin/code/selector/output/loop/text/batch/variable-merge/HTTP) and its true/false branch ports, and represents loop and batch nodes as flattened while constructs (loop body not nested, body=None), a documented modeling limitation.
 
-From these templates, 25 base workflows verified as defect-free (between 3 and 30 nodes; 8 n8n and 17 Dify) were selected. Each base workflow contributes two cases: one clean case and one defective case produced by a single controlled mutation, yielding 50 cases in total. The mutation preserves JSON syntactic validity, which is re-checked after injection, and covers five defect categories—missing branch, isolated node, abnormal loop, broken message interaction, and variable-constraint error—with five cases per category. Because the mutation type and location are recorded by the injection tool, the defective cases carry a deterministic ground truth. Collected templates on which the verifier reported candidate defects were kept separate from the clean benchmark set and are reported separately, as the most complex of them (containing iteration constructs) require manual confirmation.
+From these templates, 25 base workflows verified as defect-free (between 3 and 30 nodes; 8 from n8n, 10 from Dify, and 7 from Coze) were selected. Each base workflow contributes two cases: one clean case and one defective case produced by a single controlled mutation, yielding 50 cases in total. The mutation preserves JSON syntactic validity, which is re-checked after injection, and covers five defect categories—missing branch, isolated node, abnormal loop, broken message interaction, and variable-constraint error—with five cases per category. Because the mutation type and location are recorded by the injection tool, the defective cases carry a deterministic ground truth. Collected templates on which the verifier reported candidate defects were kept separate from the clean benchmark set and are reported separately, as the most complex of them (containing iteration constructs) require manual confirmation.
 
 ### 3.3 Results 段落（配 Table 3）
 
@@ -145,6 +146,6 @@ Two limitations should be acknowledged. First, the controlled-injection design f
    broken message interaction, variable-constraint error）。
 4. 强调 B2 是**强基线**（25 干净底版零误报），JCPN 增益落在消息配对与数据颜色两类。
 5. 必须出现 controlled-mutation 限定与 iteration 人工复核、数据颜色轻量实现的局限说明。
-6. 数据来源平台：n8n、Dify；36 个真实模板 → 25 干净底版 → 50 个评测样本；
-   Coze 因付费导出缺失。
+6. 数据来源平台：n8n、Dify、Coze（三平台，公开导出）；25 干净底版 → 50 个评测样本；
+   平台分布 n8n×8 / Dify×10 / Coze×7；Coze 循环节点按扁平 while 建模（body=None）。
 7. 不要再声称 JSON Schema 能检查分支/循环出口（行为规则已从该基线剥离，归到 B2）。

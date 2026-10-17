@@ -290,52 +290,84 @@ def parse_dify(dsl_text: str, source: str = "") -> Dict[str, Any]:
 
 
 # ===========================================================================
-# 3. Coze 适配器（实验性：按低代码工作流 JSON 规范实现，待真实导出数据验证）
+# 3. Coze 适配器（低代码工作流导出 JSON）
 # ===========================================================================
+# 真实 Coze 导出（Hammer1/cozeworkflows 公开集，191 个官方导出 zip）节点类型编码：
+#   '1' 开始  '2' 结束  '3' LLM  '4' 插件  '5' 代码  '8' 选择器(if)
+#   '13' 输出(send_only 终端)  '15' 文本处理  '16' 图像生成  '21' 循环(loop)
+#   '23' 画板  '28' 批处理(iteration)  '31' 便签(note,跳过)  '32' 变量聚合  '45' HTTP
+# 分支由 edges.sourcePortID 表达：'true' / 'false'；循环出口端口 'loop-output' 不分支。
+_COZE_NOTE = "31"
+_COZE_SELECTOR = "8"
+_COZE_OUTPUT = "13"
+_COZE_WHILE = {"21", "28"}          # 循环 / 批处理 → while
+_COZE_START = "1"
+_COZE_END = "2"
+
 
 def parse_coze(raw: Dict[str, Any], source: str = "") -> Dict[str, Any]:
     """
-    Coze 低代码工作流 JSON → 标准 JSON。
-    注意：Coze 工作流导出为 Zip（付费套餐），公开仓库无可验证样例，
-    本适配器按平台规范实现，标注 experimental=True 待真实数据验证。
+    Coze 低代码工作流 JSON（导出容器内提取的明文 JSON）→ 标准 JSON。
+
+    节点类型为字符串数字编码（见模块注释）。画布便签（type=31）跳过；
+    选择器（type=8）出边按 sourcePortID 分 true/false 分支；循环/批处理节点
+    （type=21/28）映射为 while{exit:true}，循环体不嵌套（标注 body=None），
+    与 Dify iteration 的扁平处理一致；输出节点（type=13）为 bot 单向 send_only
+    终端，豁免消息断裂误报。
     """
     nodes: List[Dict[str, Any]] = []
     edges: List[Dict[str, Any]] = []
+    if_node_ids: set = set()
+
     for n in raw.get("nodes", []):
-        nid = n.get("id") or n.get("node_id") or n.get("key")
-        t = n.get("type", "")
-        title = n.get("title") or n.get("name") or str(nid)
-        if t in ("start", "begin"):
-            std: Dict[str, Any] = {"id": nid, "type": "task", "name": title, "is_entry": True}
-        elif t in ("end", "finish", "answer"):
+        t = str(n.get("type", ""))
+        nid = str(n.get("id", ""))
+        if not nid:
+            continue
+        if t == _COZE_NOTE:
+            continue                      # 画布便签，非可执行节点
+        d = n.get("data") or {}
+        nm = d.get("nodeMeta") or {}
+        title = nm.get("title") or t
+
+        if t == _COZE_START:
+            std: Dict[str, Any] = {"id": nid, "type": "task", "name": title,
+                                   "is_entry": True}
+        elif t == _COZE_END:
             std = {"id": nid, "type": "task", "name": title}
-        elif t in ("condition", "if", "if-else"):
+        elif t == _COZE_SELECTOR:
             std = {"id": nid, "type": "if", "name": title, "guard": "cond"}
-        elif t in ("loop", "while", "iteration"):
+            if_node_ids.add(nid)
+        elif t in _COZE_WHILE:
             std = {"id": nid, "type": "while", "name": title, "exit": True,
-                   "loop_hint": t, "body": None}
-        elif t in ("message", "send", "notify", "email", "sms"):
+                   "loop_hint": "loop" if t == "21" else "batch", "body": None}
+        elif t == _COZE_OUTPUT:
             std = {"id": nid, "type": "message", "name": title,
-                   "pairing": "send_only", "platform": "coze", "direction": "out"}
+                   "sender": "bot", "pairing": "send_only",
+                   "platform": "coze", "direction": "out"}
         else:
             std = {"id": nid, "type": "task", "name": title}
         nodes.append(std)
 
-    for e in raw.get("edges", []) or raw.get("connections", []):
-        src = e.get("from") or e.get("source") or e.get("source_id")
-        tgt = e.get("to") or e.get("target") or e.get("target_id")
-        branch = e.get("branch")
-        if branch not in ("true", "false"):
-            branch = None
-        if src is not None and tgt is not None:
-            edges.append({"from": str(src), "to": str(tgt), "branch": branch})
+    for e in raw.get("edges", []) or []:
+        src = str(e.get("sourceNodeID", "") or "")
+        tgt = str(e.get("targetNodeID", "") or "")
+        if not src or not tgt:
+            continue
+        port = str(e.get("sourcePortID", "") or "")
+        if port == "true":
+            branch = "true"
+        elif port == "false":
+            branch = "false"
+        else:
+            branch = None                 # '' 或 'loop-output'：普通边
+        edges.append({"from": src, "to": tgt, "branch": branch})
 
     return {
         "version": "1.0",
         "name": raw.get("name", "coze workflow"),
         "platform": "coze",
         "source": source,
-        "experimental": True,
         "nodes": nodes,
         "edges": edges,
     }

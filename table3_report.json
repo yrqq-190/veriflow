@@ -2,7 +2,8 @@
   "n_bases": 25,
   "platform": {
     "n8n": 8,
-    "Dify": 17
+    "Dify": 10,
+    "Coze": 7
   },
   "n_cases": 50,
   "results": {
@@ -79,14 +80,14 @@
   "graph_fn": [
     "difyaws_andrew_translation_agent#variable_constraint",
     "n8n_daily_report#variable_constraint",
+    "coze_Workflow-X100_Vyuerhuiben_pro_video_1_1-draft-6331#variable_constraint",
     "difyaws_term_based_translation_workflow#variable_constraint",
     "n8n_multi_agent_research#variable_constraint",
-    "n8n_web_app_preview#variable_constraint",
-    "dify_diarization#broken_message",
-    "difyaws_ASR_Transcribe#broken_message",
-    "difyaws_Sagemaker-Bge-Rerank#broken_message",
-    "difyaws_mcp_server_integration#broken_message",
-    "difyaws_svg_designer#broken_message"
+    "difyaws_AgentCore-Memory-2#broken_message",
+    "n8n_loomcycle_tool#broken_message",
+    "coze_Workflow-X106_xiangsufeng_jimeng_step1_1-draft-6729#broken_message",
+    "difyaws_rag_based_bot_with_tts#broken_message",
+    "n8n_slack_loop#broken_message"
   ],
   "bases": [
     {
@@ -132,6 +133,12 @@
       "injected": "variable_constraint"
     },
     {
+      "file": "coze_Workflow-X100_Vyuerhuiben_pro_video_1_1-draft-6331.json",
+      "platform": "Coze",
+      "nodes": 14,
+      "injected": "variable_constraint"
+    },
+    {
       "file": "difyaws_term_based_translation_workflow.yml",
       "platform": "Dify",
       "nodes": 5,
@@ -144,10 +151,22 @@
       "injected": "variable_constraint"
     },
     {
+      "file": "coze_Workflow-X100_Vyuerhuibenpro_step2video_1-draft-6353.json",
+      "platform": "Coze",
+      "nodes": 14,
+      "injected": "isolated_node"
+    },
+    {
       "file": "n8n_web_app_preview.json",
       "platform": "n8n",
       "nodes": 5,
-      "injected": "variable_constraint"
+      "injected": "isolated_node"
+    },
+    {
+      "file": "coze_Workflow-X100_Vyuerhuibenpro_step3video_1-draft-6375.json",
+      "platform": "Coze",
+      "nodes": 14,
+      "injected": "isolated_node"
     },
     {
       "file": "difyaws_sagemaker_rerank_workflow.yml",
@@ -162,80 +181,62 @@
       "injected": "isolated_node"
     },
     {
+      "file": "coze_Workflow-X102_Vxiangsubianqingxi_step1_1-draft-6396.json",
+      "platform": "Coze",
+      "nodes": 14,
+      "injected": "abnormal_loop"
+    },
+    {
       "file": "difyaws_s3_rag.yml",
       "platform": "Dify",
       "nodes": 7,
-      "injected": "isolated_node"
+      "injected": "abnormal_loop"
+    },
+    {
+      "file": "coze_Workflow-X102_Vxiangsubianqingxi_step3_1-draft-6685.json",
+      "platform": "Coze",
+      "nodes": 14,
+      "injected": "abnormal_loop"
     },
     {
       "file": "dify_xiaohongshu_full.yml",
       "platform": "Dify",
       "nodes": 8,
-      "injected": "isolated_node"
+      "injected": "abnormal_loop"
+    },
+    {
+      "file": "coze_Workflow-X105_V54xiangsufeng_video_1-draft-6707.json",
+      "platform": "Coze",
+      "nodes": 14,
+      "injected": "abnormal_loop"
     },
     {
       "file": "difyaws_AgentCore-Memory-2.yml",
       "platform": "Dify",
       "nodes": 8,
-      "injected": "isolated_node"
+      "injected": "broken_message"
     },
     {
       "file": "n8n_loomcycle_tool.json",
       "platform": "n8n",
       "nodes": 3,
-      "injected": "abnormal_loop"
+      "injected": "broken_message"
+    },
+    {
+      "file": "coze_Workflow-X106_xiangsufeng_jimeng_step1_1-draft-6729.json",
+      "platform": "Coze",
+      "nodes": 14,
+      "injected": "broken_message"
     },
     {
       "file": "difyaws_rag_based_bot_with_tts.yml",
       "platform": "Dify",
       "nodes": 8,
-      "injected": "abnormal_loop"
+      "injected": "broken_message"
     },
     {
       "file": "n8n_slack_loop.json",
       "platform": "n8n",
-      "nodes": 3,
-      "injected": "abnormal_loop"
-    },
-    {
-      "file": "difyaws_generate_image_video.yml",
-      "platform": "Dify",
-      "nodes": 13,
-      "injected": "abnormal_loop"
-    },
-    {
-      "file": "difyaws_chat-with-browser.yml",
-      "platform": "Dify",
-      "nodes": 15,
-      "injected": "abnormal_loop"
-    },
-    {
-      "file": "dify_diarization.yaml",
-      "platform": "Dify",
-      "nodes": 3,
-      "injected": "broken_message"
-    },
-    {
-      "file": "difyaws_ASR_Transcribe.yml",
-      "platform": "Dify",
-      "nodes": 3,
-      "injected": "broken_message"
-    },
-    {
-      "file": "difyaws_Sagemaker-Bge-Rerank.yml",
-      "platform": "Dify",
-      "nodes": 3,
-      "injected": "broken_message"
-    },
-    {
-      "file": "difyaws_mcp_server_integration.yml",
-      "platform": "Dify",
-      "nodes": 3,
-      "injected": "broken_message"
-    },
-    {
-      "file": "difyaws_svg_designer.yml",
-      "platform": "Dify",
       "nodes": 3,
       "injected": "broken_message"
     }
