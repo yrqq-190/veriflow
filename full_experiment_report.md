@@ -9,7 +9,7 @@
 | Method | Precision | Recall | F1 | Accuracy | TP | FP | FN | TN |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | B1: JSON Schema | 0.0% | 0.0% | 0.0% | 41.0% | 0 | 0 | 270 | 188 |
-| B2: Graph static checker | 100.0% | 53.0% | 69.2% | 72.3% | 143 | 0 | 127 | 188 |
+| B2: Graph static checker | 100.0% | 75.2% | 85.8% | 85.4% | 203 | 0 | 67 | 188 |
 | **Proposed: JCPN** | **100.0%** | **100.0%** | **100.0%** | **100.0%** | **270** | **0** | **0** | **188** |
 
 > B2 Graph static checker 实现了 BFS 可达性、入/出度检查、分支完整性、Tarjan SCC 无出口环、消息无后继五项结构检查，
@@ -29,53 +29,38 @@
 
 | Platform | TP | FP | FN | TN | F1 |
 | --- | --- | --- | --- | --- | --- |
-| n8n | 19 | 0 | 14 | 8 | 73.1% |
-| Dify | 40 | 0 | 35 | 18 | 69.6% |
-| Coze | 84 | 0 | 78 | 162 | 68.3% |
+| n8n | 26 | 0 | 7 | 8 | 88.1% |
+| Dify | 58 | 0 | 17 | 18 | 87.2% |
+| Coze | 119 | 0 | 43 | 162 | 84.7% |
 
 ## 3. Per-category recall（回应：按缺陷类型分解）
 
 | Defect type | Injected | JCPN 检出 | Graph 检出 | Schema 检出 | JCPN Recall |
 | --- | --- | --- | --- | --- | --- |
 | missing_branch | 7 | 7 | 6 | 0 | 100.0% |
-| isolated_node | 64 | 64 | 64 | 0 | 100.0% |
-| abnormal_loop | 72 | 72 | 72 | 0 | 100.0% |
-| broken_message | 69 | 69 | 1 | 0 | 100.0% |
-| variable_constraint | 58 | 58 | 0 | 0 | 100.0% |
+| isolated_node | 63 | 63 | 63 | 0 | 100.0% |
+| abnormal_loop | 63 | 63 | 63 | 0 | 100.0% |
+| broken_message | 71 | 71 | 71 | 0 | 100.0% |
+| variable_constraint | 66 | 66 | 0 | 0 | 100.0% |
 
 ## 4. Defect localization（回应：source-node Top-1 accuracy）
 
 对每个注入的缺陷，对比 JCPN 报告的 source_id 与实际注入位置：
 
 - 可定位样本数：270
-- Top-1 命中数：143
-- **整体 Top-1 accuracy：53.0%**
+- Top-1 命中数：148
+- **Top-1 accuracy：54.8%**
 
-分缺陷类型：
-
-| Defect type | 可定位 | 命中 | Top-1 Accuracy |
-| --- | --- | --- | --- |
-| missing_branch | 7 | 6 | 85.7% |
-| isolated_node | 71 | 63 | 88.7% |
-| broken_message | 62 | 62 | 100.0% |
-| variable_constraint | 64 | 64 | 100.0% |
-| abnormal_loop | 62 | 2 | 3.2% |
-
-> **注**：abnormal_loop 的 Top-1 仅 3.2%，是因为该缺陷注入的是新插入的循环节点（`loop_injected_1`），
-> 而 JCPN 通过可达图 + SCC 分析定位的是**循环区域内的源节点**（循环体 task / 出口），
-> 而非新插入的循环变迁本身。这反映了可达图方法的固有特性——它定位的是"触发非终止的状态"，
-> 而非语法上的注入点。若将 abnormal_loop 视为区域级定位（报告节点在循环体内即算命中），
-> 控制流 + 语义四类缺陷的整体 Top-1 为 **95.6%（195/204）**。
->
-> 对 variable_constraint，JCPN 报告边两端任意 task 即视为命中。
+> 注：variable_constraint 缺陷落在相邻边上而非单节点上，部分样本的注入点为边两端节点，
+> JCPN 报告任意一端即视为命中。
 
 ## 5. Scalability（回应：运行时间与可达图规模）
 
 | 节点规模 | 样本数 | 平均 |P| | 平均 |T| | 平均 |RG| | 平均耗时(ms) | 最大耗时(ms) |
 | --- | --- | --- | --- | --- | --- | --- |
-| 3-5 | 13 | 4.8 | 3.8 | 4.8 | 1.2 | 2.3 |
-| 6-10 | 10 | 9.2 | 7.6 | 8.7 | 1.4 | 2.2 |
-| 11-20 | 165 | 10.1 | 14.0 | 10.1 | 1.8 | 5.1 |
+| 3-5 | 13 | 4.8 | 3.8 | 4.8 | 0.6 | 0.9 |
+| 6-10 | 10 | 9.2 | 7.6 | 8.7 | 0.8 | 1.8 |
+| 11-20 | 165 | 10.1 | 14.0 | 10.1 | 1.5 | 3.5 |
 
 > 计时包含 JSON → JCPN 转换、可达图构建、五类缺陷检测全流程。
 > 硬件：本地 Windows PC，Python 3.11，无外部依赖。

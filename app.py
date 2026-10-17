@@ -27,7 +27,7 @@ from preprocess import preprocess
 from jcpn_builder import transform
 from verification import verify_workflow
 from repair import suggest_repairs, apply_repairs, verify_workflow as _vw
-from adapters import parse_n8n, parse_dify
+from adapters import parse_n8n, parse_dify, parse_coze
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 WEBUI = os.path.join(BASE, "webui")
@@ -201,10 +201,10 @@ def api_samples():
             continue
         path = os.path.join(real_dir, fn)
         try:
-            if fn.endswith(".yml"):
+            if fn.startswith("coze_"):
+                std = parse_coze(json.load(open(path, encoding="utf-8")), fn)
+            elif fn.endswith(".yml") or fn.startswith("dify"):
                 std = parse_dify(open(path, encoding="utf-8").read(), fn)
-            else:
-                std = parse_n8n(json.load(open(path, encoding="utf-8")), fn)
             v = verify_workflow(std)
             samples.append({
                 "id": os.path.splitext(fn)[0], "platform": std["platform"],
@@ -220,16 +220,16 @@ def api_samples():
                             "error": str(e)[:120]})
     elapsed = round(_t.perf_counter() - t0, 3)
     eval_data = {}
-    eval_path = os.path.join(base, "report_real.json")
+    eval_path = os.path.join(base, "full_experiment_report.json")
+    eval_data = {}
     if os.path.exists(eval_path):
-        eval_data = json.load(open(eval_path, encoding="utf-8"))
-    payload = {"samples": samples, "elapsed_s": elapsed,
-               "evaluation": eval_data.get("results", {}),
-               "by_type": eval_data.get("by_type", []),
-               "dataset": eval_data.get("dataset", {})}
-    with _lock:
-        _SAMPLES_CACHE.update({"mtime": cache_key, "data": payload})
-    return jsonify(payload)
+        _fe = json.load(open(eval_path, encoding="utf-8"))
+        _g = _fe.get("global", {})
+        eval_data = {"results": {
+            "JSON Schema": {"precision": _g.get("schema",{}).get("precision",0), "recall": _g.get("schema",{}).get("recall",0), "f1": _g.get("schema",{}).get("f1",0), "accuracy": _g.get("schema",{}).get("accuracy",0)},
+            "Graph static": {"precision": _g.get("graph",{}).get("precision",0), "recall": _g.get("graph",{}).get("recall",0), "f1": _g.get("graph",{}).get("f1",0), "accuracy": _g.get("graph",{}).get("accuracy",0)},
+            "JCPN": {"precision": _g.get("jcpn",{}).get("precision",0), "recall": _g.get("jcpn",{}).get("recall",0), "f1": _g.get("jcpn",{}).get("f1",0), "accuracy": _g.get("jcpn",{}).get("accuracy",0)},
+        }, "dataset": {"n_bases": _fe.get("n_bases",0), "n_samples": _fe.get("n_samples",0)}}
 
 
 @app.post("/api/generate")

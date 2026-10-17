@@ -138,16 +138,32 @@ def graph_based_static_checker(workflow: dict) -> set:
         if not has_exit:
             defects.add(("abnormal_loop", comp[0]))
 
-    # 5. 消息断裂（消息节点无出边）。
-    # 公平性修正：Dify/Coze 的 answer 类节点是单向回复型终端（send_only + out，
-    # 向用户输出即合法结束），无出边正常，不报；仅对期望配对（unpaired）或
-    # 非回复型消息的无后继报告。注意：有出边但缺配对接收的消息仍无法由此
-    # 结构检查识别（需 JCPN 消息配对语义）。
+    # 5. 消息配对检查（加强版，不再是稻草人）：
+    #    a) message 节点无出边（发送后流程终止）
+    #    b) message 节点显式标注 pairing=unpaired（发送后无对应接收）
+    #    c) n8n 配对模式：发送端 message 若声明了 receiver 但图中找不到对应接收节点
+    #    公平性修正：send_only/out（向用户回复）合法，不报。
+    #    局限：需要可达图才能判断"发送端是否在接收端的所有前驱路径上"，
+    #    纯结构检查只能做局部配对，跨分支/异步消息仍可能漏报 —— 这是 JCPN 的增益。
     for n in nodes:
-        if n.get("type") == "message" and out_deg[n["id"]] == 0:
-            if n.get("pairing") == "send_only" and n.get("direction") == "out":
-                continue
-            defects.add(("broken_message", n["id"]))
+        if n.get("type") != "message":
+            continue
+        nid = n["id"]
+        # send_only/out 是终端回复，合法结束
+        if n.get("pairing") == "send_only" and n.get("direction") == "out":
+            continue
+        # a) 无出边
+        if out_deg[nid] == 0:
+            defects.add(("broken_message", nid))
+            continue
+        # b) 显式 unpaired
+        if n.get("pairing") == "unpaired":
+            defects.add(("broken_message", nid))
+            continue
+        # c) 声明了 receiver 但图中无对应接收节点（按 receiver id 匹配）
+        receiver = n.get("receiver")
+        if receiver and receiver not in node_ids:
+            defects.add(("broken_message", nid))
 
     return defects
 
