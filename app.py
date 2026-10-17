@@ -184,43 +184,16 @@ _SAMPLES_CACHE: Dict[str, Any] = {}
 
 @app.route("/api/samples")
 def api_samples():
-    """真实样本清单 + 逐样本检测过程摘要 + 评估结果（演示按钮数据源）。"""
-    import time as _t
-    with _lock:
-        cache_key = (max([os.path.getmtime(os.path.join(os.path.dirname(os.path.abspath(__file__)), "real_samples", f))
-                         for f in os.listdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), "real_samples"))
-                         if f.endswith((".json", ".yml")) and not f.startswith("save_")], default=0))
-        if _SAMPLES_CACHE.get("mtime") == cache_key and _SAMPLES_CACHE.get("data"):
-            return jsonify(_SAMPLES_CACHE["data"])
+    """真实样本清单 + 逐样本检测结果 + 评估对比（读预计算 JSON，不实时跑，避免 Render OOM）。"""
     base = os.path.dirname(os.path.abspath(__file__))
-    real_dir = os.path.join(base, "real_samples")
-    samples = []
-    t0 = _t.perf_counter()
-    for fn in sorted(os.listdir(real_dir)):
-        if not fn.endswith((".json", ".yml")) or fn.startswith("save_"):
-            continue
-        path = os.path.join(real_dir, fn)
-        try:
-            if fn.startswith("coze_"):
-                std = parse_coze(json.load(open(path, encoding="utf-8")), fn)
-            elif fn.endswith(".yml") or fn.startswith("dify"):
-                std = parse_dify(open(path, encoding="utf-8").read(), fn)
-            v = verify_workflow(std)
-            samples.append({
-                "id": os.path.splitext(fn)[0], "platform": std["platform"],
-                "name": std["name"], "source": fn,
-                "nodes": len(std["nodes"]), "edges": len(std["edges"]),
-                "types": [n["type"] for n in std["nodes"]],
-                "|P|": v["stats"].get("|P|", 0), "|RG|": v["stats"].get("|RG|", 0),
-                "defective": v["defective"],
-                "defects": [d["type"] for d in v["defects"]],
-            })
-        except Exception as e:  # noqa: BLE001
-            samples.append({"id": os.path.splitext(fn)[0], "source": fn,
-                            "error": str(e)[:120]})
-    elapsed = round(_t.perf_counter() - t0, 3)
-    eval_data = {}
+    pre_path = os.path.join(base, "samples_precomputed.json")
     eval_path = os.path.join(base, "full_experiment_report.json")
+    samples = []
+    elapsed = 0.0
+    if os.path.exists(pre_path):
+        _d = json.load(open(pre_path, encoding="utf-8"))
+        samples = _d.get("samples", [])
+        elapsed = _d.get("elapsed_s", 0.0)
     eval_data = {}
     if os.path.exists(eval_path):
         _fe = json.load(open(eval_path, encoding="utf-8"))
@@ -230,6 +203,7 @@ def api_samples():
             "Graph static": {"precision": _g.get("graph",{}).get("precision",0), "recall": _g.get("graph",{}).get("recall",0), "f1": _g.get("graph",{}).get("f1",0), "accuracy": _g.get("graph",{}).get("accuracy",0)},
             "JCPN": {"precision": _g.get("jcpn",{}).get("precision",0), "recall": _g.get("jcpn",{}).get("recall",0), "f1": _g.get("jcpn",{}).get("f1",0), "accuracy": _g.get("jcpn",{}).get("accuracy",0)},
         }, "dataset": {"n_bases": _fe.get("n_bases",0), "n_samples": _fe.get("n_samples",0)}}
+    return jsonify({"samples": samples, "elapsed_s": elapsed, "evaluation": eval_data.get("results", {}), "by_type": [], "dataset": eval_data.get("dataset", {})})
 
 
 @app.post("/api/generate")
