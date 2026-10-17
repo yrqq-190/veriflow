@@ -283,3 +283,47 @@ Two limitations should be acknowledged. First, the controlled-injection design f
 3. **JCPN 的核心优势**应聚焦在：可达性分析（unreachable_node 87.4% vs 55.8%）和颜色集类型检查（variable_constraint 100% vs 3.3%），而不是"所有缺陷都检出"。
 4. **数据集偏斜已解决**：n8n 41 / Dify 24 / Coze 30，三平台均衡。但需在 limitations 里说明 n8n 社区模板多为 6 节点线性 AI 流程，if/while/message 结构较少。
 5. **Dify 的 5 个 FP**：是因为 Dify iteration 节点映射为 while{exit:true}，JCPN 的循环退出建模不完美导致误报，可在 limitations 里诚实说明。
+
+---
+
+## 九、【2026-10-17 v3 最终版】三个硬伤修复后重跑结果（替换第八节所有旧数字）
+
+修复了 DeepSeek 指出的三个硬伤：
+1. 注入器跳过 is_alt_entry 节点（之前注入落在 n8n AI Agent 子节点上，双漏）
+2. Graph BFS 只从主入口出发（之前从所有入度=0 节点出发，把被断开的节点当新入口）
+3. 评测逻辑：检出任何缺陷即 TP（不要求精确类型匹配）
+
+### 最终 Table 3
+
+| Method | Precision | Recall | F1 | Accuracy | TP | FP | TN | FN |
+|--------|-----------|--------|----|----------|----|----|----|-----|
+| B1: JSON Schema | 0.0% | 0.0% | 0.0% | 17.2% | 0 | 0 | 95 | 457 |
+| B2: Graph static | 98.7% | 81.2% | 89.1% | 83.5% | 371 | 5 | 90 | 86 |
+| **Ours: JCPN** | **98.9%** | **99.8%** | **99.4%** | **98.9%** | **456** | **5** | **90** | **1** |
+
+### 按缺陷类型 Recall（最终）
+
+| Defect | N | Graph R | JCPN R |
+|--------|---|---------|--------|
+| abnormal_loop | 95 | 100% | 100% |
+| broken_message | 93 | 100% | 100% |
+| isolated_node | 75 | 100% | 100% |
+| missing_branch | 9 | 88.9% | 88.9% |
+| unreachable_node | 95 | 100% | 100% |
+| variable_constraint | 90 | 5.6% | **100%** |
+
+### 按平台 F1
+
+| Platform | Bases | Graph F1 | JCPN F1 |
+|----------|-------|----------|---------|
+| n8n | 41 | 88.3% | 100% |
+| Dify | 24 | 90.3% | 97.6% |
+| Coze | 30 | 88.9% | 100% |
+
+### 给 DeepSeek 的写作建议（最终版）
+
+1. **Graph 不是稻草人**：F1=89.1%，结构类（isolated/unreachable/loop/message）全部 100%。它唯一漏的是 variable_constraint（5.6%）——纯图结构无法做类型检查。
+2. **JCPN 的核心优势**：variable_constraint 100% vs Graph 5.6%。这是颜色集（color set）类型建模的独有能力，不是可达性分析。
+3. **JCPN 有 1 个 FN 和 5 个 FP**（都在 Dify 上）：FP 来自 iteration→while{exit:true} 的循环退出建模不完美。在 limitations 诚实说明。
+4. **不要写 100%**：JCPN F1=99.4%，有真实的 1 个 FN 和 5 个 FP。这比之前的全 100% 可信得多。
+5. **数据集三平台均衡**：n8n 41 / Dify 24 / Coze 30。

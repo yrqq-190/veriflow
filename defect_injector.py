@@ -59,7 +59,7 @@ def inject_isolated_node(wf: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:
         in_deg[e["to"]] = in_deg.get(e["to"], 0) + 1
         out_deg[e["from"]] = out_deg.get(e["from"], 0) + 1
     for n in w["nodes"]:
-        if n.get("type") != "task" or n.get("is_entry"):
+        if n.get("type") != "task" or n.get("is_entry") or n.get("is_alt_entry"):
             continue
         if in_deg.get(n["id"], 0) >= 1 and out_deg.get(n["id"], 0) >= 1:
             w["edges"] = [e for e in w["edges"]
@@ -75,7 +75,7 @@ def inject_unreachable_node(wf: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:
     for e in w["edges"]:
         in_deg[e["to"]] = in_deg.get(e["to"], 0) + 1
     for n in w["nodes"]:
-        if n.get("type") != "task" or n.get("is_entry"):
+        if n.get("type") != "task" or n.get("is_entry") or n.get("is_alt_entry"):
             continue
         if in_deg.get(n["id"], 0) >= 1:
             w["edges"] = [e for e in w["edges"] if e["to"] != n["id"]]
@@ -92,7 +92,7 @@ def inject_abnormal_loop(wf: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:
     # 在第一个非入口 task 前插入无出口 while
     anchor = None
     for n in nodes:
-        if n.get("type") == "task" and not n.get("is_entry"):
+        if n.get("type") == "task" and not n.get("is_entry") and not n.get("is_alt_entry"):
             anchor = n["id"]
             break
     if anchor is None:
@@ -151,11 +151,12 @@ def inject_variable_constraint(wf: Dict[str, Any]) -> Tuple[Dict[str, Any], str]
     for e in w["edges"]:
         nu, nv = by_id.get(e["from"]), by_id.get(e["to"])
         if (nu and nv and nu.get("type") == "task" and nv.get("type") == "task"
-                and not nu.get("is_entry") and not nv.get("is_entry")):
+                and not nu.get("is_entry") and not nv.get("is_entry")
+                and not nu.get("is_alt_entry") and not nv.get("is_alt_entry")):
             nu["output_type"] = "integer"
             nv["input_type"] = "string"
             return w, "variable_constraint"
-    tasks = [n for n in w["nodes"] if n.get("type") == "task" and not n.get("is_entry")]
+    tasks = [n for n in w["nodes"] if n.get("type") == "task" and not n.get("is_entry") and not n.get("is_alt_entry")]
     if len(tasks) >= 2:
         tasks[0]["output_type"] = "integer"
         tasks[1]["input_type"] = "string"

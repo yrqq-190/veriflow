@@ -96,17 +96,34 @@ def graph_based_static_checker(workflow: dict) -> set:
         if in_deg[nid] == 0 and out_deg[nid] == 0:
             defects.add(("isolated_node", nid))
 
-    # 2. 不可达节点（从非孤立的无入边入口出发）
+    # 2. 不可达节点：从"主入口"（覆盖节点最多的入口）出发 BFS
+    #    不能从所有入度=0 节点出发——注入 unreachable_node 后被断开的节点
+    #    也会变成入度=0，若把它当合法入口就会漏报（审稿意见 #2）。
     entries = [n for n in node_ids
                if n not in alt and in_deg[n] == 0 and out_deg[n] != 0]
-    reachable: Set[str] = set()
-    stack = list(entries)
-    while stack:
-        cur = stack.pop()
-        if cur in reachable:
-            continue
-        reachable.add(cur)
-        stack.extend(succ.get(cur, []))
+
+    def _bfs(start):
+        seen = set()
+        st = [start]
+        while st:
+            cur = st.pop()
+            if cur in seen:
+                continue
+            seen.add(cur)
+            st.extend(succ.get(cur, []))
+        return seen
+
+    if entries:
+        best_entry = entries[0]
+        best_count = -1
+        for e in entries:
+            cnt = len(_bfs(e))
+            if cnt > best_count:
+                best_count = cnt
+                best_entry = e
+        reachable = _bfs(best_entry)
+    else:
+        reachable = set()
     for nid in node_ids:
         if nid in alt:
             continue
