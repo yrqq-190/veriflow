@@ -235,3 +235,51 @@ Two limitations should be acknowledged. First, the controlled-injection design f
 5. **Scalability**：已按节点规模分组报告运行时间与可达图大小，计时含全流程，硬件配置已注明。
 6. **Per-category 结果表**：见 §四，每类缺陷的 JCPN/Graph/Schema 检出数均已列出。
 7. **实现与复现**：Python 3.11、纯标准库、三平台规则适配器、标准 JSON 格式、GitHub 公开仓库；未使用 CPN Tools，JCPN 为自研 Python 实现。
+
+---
+
+## 八、【2026-10-17 更新】平衡数据集重跑结果（替换上面所有旧数字）
+
+【中文】审稿人批评旧数据集 Coze 占 79% 偏斜、JCPN 全 100% 像过拟合。我们做了：
+1. 从 GitHub `wassupjay/n8n-free-templates` 下载 202 个 n8n 社区模板，选 30 个跨类别；
+2. Coze 从 162 个随机抽 30 个；
+3. Dify 保持 24 个；
+4. 修复了 graph baseline 的 broken_message 配对检查（之前是稻草人）；
+5. 修复了实验脚本对注入后工作流二次 preprocess 导致缺陷标记丢失的 bug。
+
+**新数据集：95 个干净底版（n8n 41 / Dify 24 / Coze 30），475 个注入样本，共 570 个评测样本。**
+
+### Table 3 全局结果（替换旧版）
+
+| Method | Precision | Recall | F1 | Accuracy | TP | FP | TN | FN |
+|--------|-----------|--------|----|----------|----|----|----|-----|
+| B1: JSON Schema | 0.0% | 0.0% | 0.0% | 16.7% | 0 | 0 | 95 | 475 |
+| B2: Graph static | 99.1% | 68.6% | 81.1% | 73.3% | 326 | 3 | 92 | 149 |
+| **Ours: JCPN** | **98.9%** | **93.5%** | **96.1%** | **93.7%** | **444** | **5** | **90** | **31** |
+
+### 按缺陷类型 Recall（替换旧版）
+
+| Defect | N | Graph R | JCPN R | 说明 |
+|--------|---|---------|--------|------|
+| abnormal_loop | 95 | 100% | 100% | 结构环，两者都能检出 |
+| broken_message | 93 | 100% | 100% | graph 配对检查已加强 |
+| isolated_node | 93 | 80.6% | 80.6% | 纯图属性，两者相同 |
+| missing_branch | 9 | 77.8% | 88.9% | 多数底版无 if 分支，样本少 |
+| unreachable_node | 95 | 55.8% | **87.4%** | **JCPN 优势：可达性分析** |
+| variable_constraint | 90 | 3.3% | **100%** | **JCPN 独有：颜色集/类型检查** |
+
+### 按平台 F1（新增，回应数据集偏斜批评）
+
+| Platform | Bases | Graph F1 | JCPN F1 |
+|----------|-------|----------|---------|
+| n8n | 41 | 72.2% | 91.9% |
+| Dify | 24 | 84.2% | 97.6% |
+| Coze | 30 | 88.9% | 100% |
+
+### 关键叙事调整（给 DeepSeek 的写作建议）
+
+1. **不要再写 100%**。JCPN F1=96.1%，有 31 个 FN（主要在 n8n 线性 AI 模板上）和 5 个 FP（Dify 循环节点误报）。这反而更可信。
+2. **Graph baseline 不再是稻草人**。F1=81.1%，能检出结构类缺陷，但在语义类（variable_constraint 3.3%）和可达性（unreachable_node 55.8%）上明显弱于 JCPN。
+3. **JCPN 的核心优势**应聚焦在：可达性分析（unreachable_node 87.4% vs 55.8%）和颜色集类型检查（variable_constraint 100% vs 3.3%），而不是"所有缺陷都检出"。
+4. **数据集偏斜已解决**：n8n 41 / Dify 24 / Coze 30，三平台均衡。但需在 limitations 里说明 n8n 社区模板多为 6 节点线性 AI 流程，if/while/message 结构较少。
+5. **Dify 的 5 个 FP**：是因为 Dify iteration 节点映射为 while{exit:true}，JCPN 的循环退出建模不完美导致误报，可在 limitations 里诚实说明。

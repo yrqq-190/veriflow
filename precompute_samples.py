@@ -9,9 +9,24 @@ from verification import verify_workflow
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 REAL = os.path.join(BASE, "real_samples")
+import random
+random.seed(42)
+
+# Collect all candidate files, then balance per platform
+all_files = sorted(os.listdir(REAL))
+coze_files = [f for f in all_files if f.startswith("coze_") and f.endswith(".json")]
+other_files = [f for f in all_files if f.endswith((".json", ".yml")) and not f.startswith(("save_", "coze_"))]
+
+# Cap Coze at 30 to balance with n8n (~41) and Dify (~25)
+random.shuffle(coze_files)
+coze_files = coze_files[:30]
+
+selected_files = other_files + coze_files
+print(f"Selected: {len(other_files)} non-Coze + {len(coze_files)} Coze = {len(selected_files)} total")
+
 samples = []
 t0 = time.perf_counter()
-for fn in sorted(os.listdir(REAL)):
+for fn in selected_files:
     if not fn.endswith((".json", ".yml")) or fn.startswith("save_"):
         continue
     path = os.path.join(REAL, fn)
