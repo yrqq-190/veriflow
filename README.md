@@ -1,7 +1,10 @@
 # VeriFlow — 自然语言 → 形式化验证 → 修复的工作流原型
 
-从用户自然语言描述出发，自动生成标准化 JSON 工作流，构建 JCPN（JSON-based Colored Petri Net）模型，
-运行可达图形式化验证，生成缺陷修复建议并在用户确认后应用，最后交付正确的工作流。
+VeriFlow 从自然语言描述出发，自动生成标准化 JSON 工作流，构建 JCPN（JSON-based Colored Petri Net）模型，
+运行可达图形式化验证与缺陷定位，生成修复建议并在用户确认后应用，最终交付可验证的正确工作流。
+
+- 论文：*Source-Aware Formal Verification and Defect Localization of LLM-Generated Workflows Using Colored Petri Nets*（投稿 Information Sciences）
+- 在线演示：https://veriflow-jqel.onrender.com
 
 ## 快速启动
 
@@ -17,7 +20,6 @@ python app.py
 - 学生请假审批流程，三天以内辅导员审批，超过三天学院审批，通过后通知学生并登记
 - 订单来了先校验库存，够就发货，不够通知补货，最后都通知客户
 - 每天早上拉取业务数据，生成报表，推送日报
-- 我自己也没想好，帮我生成一个海关一体化通关流程（命中内置场景模板，无大模型）
 
 ## 闭环流程（右侧 10 阶段管道）
 
@@ -49,34 +51,31 @@ veriflow/
 ├── repair.py               修复建议 + 应用 + 重验证闭环
 ├── adapters.py             平台适配器（n8n / Dify / Coze）
 ├── graph_static_checker.py 图结构基线 + JSON Schema 基线
-├── evaluation_real.py      真实平台数据评估（结果见 evaluation_report_real.md）
 ├── defect_injector.py      缺陷注入器（受控负样本）
-├── real_samples/           12 个真实平台工作流（n8n×11、Dify×1，含官方/社区样例）
+├── evaluation_real.py / run_balanced_experiment.py   实验入口
+├── real_samples/           真实平台工作流样本（n8n / Dify / Coze 三平台公开导出）
 ├── webui/                  双语前端（index.html / app.js / styles.css）
-├── report_real.html        评估可视化页（ECharts）
-└── evaluation_report_real.md  实测评估报告
+└── experiment_results.json 主实验输出（95 底版 × 552 评测用例）
 ```
 
-## 真实数据评估结果（实测，不参照论文）
+## 实验数据（论文口径，2026-10 平衡版）
 
-数据集：12 个真实平台样本（n8n×11、Dify×1，来源含 n8n 官方 demo、langfuse demo、
-loomcycle 社区样例、beansmile Dify DSL）+ 48 个受控注入缺陷 = 60 用例。
+- **数据集**：95 个干净底版（n8n 41 / Dify 24 / Coze 30）+ 457 个受控注入缺陷样本 = **552 个评测用例**
+  （每底版最多注入 6 类缺陷，注入失败的跳过，共跳过 113 次）
+- **缺陷分布**：abnormal_loop 95 / unreachable_node 95 / broken_message 93 / variable_constraint 90 / isolated_node 75 / missing_branch 9
+- **方法对比（552 用例）**
 
-| Method | Precision | Recall | F1 | Accuracy |
-|---|---|---|---|---|
-| JSON Schema | 91.3% | 43.8% | 59.2% | 51.7% |
-| Graph static checker | 93.3% | 58.3% | 71.8% | 63.3% |
-| **Proposed JCPN** | **100%** | **81.2%** | **89.7%** | **85.0%** |
+| Method | Precision | Recall | F1 | Accuracy | TP | FP | FN | TN |
+|---|---|---|---|---|---|---|---|---|
+| JSON Schema | — | — | — | 17.2% | 0 | 0 | 95 | 457 |
+| Graph static checker | 98.7% | 81.2% | 89.1% | 83.5% | 371 | 5 | 90 | 86 |
+| **Proposed JCPN** | **98.9%** | **99.8%** | **99.4%** | **99.3%** | **456** | **5** | **1** | **90** |
 
-- JCPN：TP=39 / FP=0 / FN=9 / TN=12，正常样本零误报；FN 全部为 variable_constraint
-  （Θ 不建模数据域，已知局限，且该类缺陷按论文边界本就不自动修复）。
-- Graph 弱于 Schema 的原因是循环出口（abnormal_loop）与消息配对（broken_message）需语义判断，
-  纯结构检查系统性失效——这正是 JCPN 方法的价值点。
-- 样本逐条检测见网页"样本与检测过程"按钮（/api/samples，12 个样本全通过，JCPN 零误报）。
-- Coze 工作流导出为付费功能，公开渠道无可验证样例（适配器已实现，标 experimental，待真实数据）。
+- 可达图验证：98 节点规模平均 **7.7 ms**（localization 与 scalability 详见论文）
+- 样本逐条检测见网页"样本与检测过程"按钮（/api/samples）
 
 ## 已知局限
 
 - variable_constraint（数据域不一致）不自动修复，需人工复核（对应论文"不修复语义缺陷"边界）。
-- 模板库内置 8 个高频场景（含海关一体化通关）；未命中时走通用步骤解析，复杂嵌套结构建议提供更完整的描述。
+- 模板库内置 8 个高频场景；未命中时走通用步骤解析，复杂嵌套结构建议提供更完整的描述。
 - 会话状态存内存（单用户演示），生产需换持久化。
