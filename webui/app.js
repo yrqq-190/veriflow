@@ -555,7 +555,7 @@
 
       // 4) 数据来源说明
       html += "<p class='sample-note'>数据来源：n8n 官方 starter-kit 与 E2E 模板、Langfuse Studio 分组 demo、loomcycle 社区示例、Dify 官方示例 DSL（GitHub 公开仓库导出）；" +
-        "负样本为在其上受控注入的 5+1 类缺陷。Coze 导出为付费功能，暂无公开样例。详细报告见 evaluation_report_real.md。</p>";
+        "负样本为在其上受控注入的 5+1 类缺陷。Coze 导出为付费功能，暂无公开样例。详细报告见 balanced_experiment_report.md。</p>";
       samplesBody.innerHTML = html;
     }).catch(function () {
       samplesBody.innerHTML = "<p class='empty'>" + esc(t("loadError")) + "</p>";

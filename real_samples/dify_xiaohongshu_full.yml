@@ -358,7 +358,7 @@ workflow:
     - data:
         authorization:
           config:
-            api_key: 298845100895770054.lPjulRkBszvVlFeQGNTeD2vJY3runtmv
+            api_key: REDACTED
             header: X-API-Key
             type: custom
           type: api-key

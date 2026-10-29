@@ -22,7 +22,7 @@ VeriFlow: 平台适配器（真实平台工作流 → 标准化 JSON）
     —— body 嵌套（若平台 DSL 内嵌子节点）或空体（仅保留结构，标注局限）；
   - 其余执行节点 → task。
 
-缺陷注入的真实负样本由 defect_injector 在标准 JSON 层构造（见 evaluation_real.py）。
+缺陷注入的真实负样本由 defect_injector 在标准 JSON 层构造（见 defect_injector.py 与 run_balanced_experiment.py）。
 """
 from __future__ import annotations
 
@@ -222,7 +222,7 @@ def parse_dify(dsl_text: str, source: str = "") -> Dict[str, Any]:
     Dify DSL（YAML）→ 标准 JSON。
     graph.edges 按 sourceHandle（true/false/source）表达分支；
     iteration 节点：映射为 while{exit:true}，body 留空（Dify 迭代体内节点
-    不在该节点下嵌套，标注局限，见 evaluation_real.py 报告）。
+    不在该节点下嵌套，标注局限，见 balanced_experiment_report.md）。
     """
     if yaml is None:
         raise RuntimeError("pyyaml is required to parse Dify DSL")

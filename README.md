@@ -52,7 +52,7 @@ veriflow/
 ├── adapters.py             平台适配器（n8n / Dify / Coze）
 ├── graph_static_checker.py 图结构基线 + JSON Schema 基线
 ├── defect_injector.py      缺陷注入器（受控负样本）
-├── evaluation_real.py / run_balanced_experiment.py   实验入口
+├── run_balanced_experiment.py / run_final_eval.py   实验入口
 ├── real_samples/           真实平台工作流样本（n8n / Dify / Coze 三平台公开导出）
 ├── webui/                  双语前端（index.html / app.js / styles.css）
 └── experiment_results.json 主实验输出（95 底版 × 552 评测用例）
@@ -72,6 +72,8 @@ veriflow/
 | **Proposed JCPN** | **98.9%** | **99.8%** | **99.3%** | **98.9%** | **456** | **5** | **90** | **1** |
 
 - 可达图验证：98 节点规模平均 **小于 8 ms**（localization 与 scalability 详见论文）
+
+- **样本目录 `real_samples/`**：包含论文全部真实样本——n8n 41、Dify 24、Coze 162（完整采集池；评测按 seed=42 抽取其中 30 个为底版）。来源与许可见 `real_samples/SOURCES.md`，注入方式见 `defect_injector.py`。
 - 样本逐条检测见网页"样本与检测过程"按钮（/api/samples）
 
 ## 已知局限
