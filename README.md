@@ -65,13 +65,13 @@ veriflow/
 - **缺陷分布**：abnormal_loop 95 / unreachable_node 95 / broken_message 93 / variable_constraint 90 / isolated_node 75 / missing_branch 9
 - **方法对比（552 用例）**
 
-| Method | Precision | Recall | F1 | Accuracy | TP | FP | FN | TN |
+| Method | Precision | Recall | F1 | Accuracy | TP | FP | TN | FN |
 |---|---|---|---|---|---|---|---|---|
 | JSON Schema | — | — | — | 17.2% | 0 | 0 | 95 | 457 |
 | Graph static checker | 98.7% | 81.2% | 89.1% | 83.5% | 371 | 5 | 90 | 86 |
-| **Proposed JCPN** | **98.9%** | **99.8%** | **99.4%** | **99.3%** | **456** | **5** | **1** | **90** |
+| **Proposed JCPN** | **98.9%** | **99.8%** | **99.3%** | **98.9%** | **456** | **5** | **90** | **1** |
 
-- 可达图验证：98 节点规模平均 **7.7 ms**（localization 与 scalability 详见论文）
+- 可达图验证：98 节点规模平均 **小于 8 ms**（localization 与 scalability 详见论文）
 - 样本逐条检测见网页"样本与检测过程"按钮（/api/samples）
 
 ## 已知局限

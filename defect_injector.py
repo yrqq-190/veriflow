@@ -6,8 +6,9 @@ VeriFlow: 缺陷注入器（真实平台工作流 → 受控缺陷负样本）
 每类注入函数返回 (workflow', defect_label)。注入保持 JSON 语法有效，
 仅破坏控制流/消息/数据语义 —— 与论文"语法正常、语义缺陷"的实验设计一致。
 
-注意：variable_constraint 注入在当前 Θ 抽象（不建模数据域）下为已知局限，
-评估中将如实呈现为 FN（与论文 §4.3.2 报告一致）。
+variable_constraint 注入通过改写相邻任务的 output_type / input_type 声明制造
+数据颜色冲突，由 verification.detect_variable_constraint 的 Θ_data 颜色一致性
+静态检查检出（与论文 Table 6 / §4.3 报告一致）。
 """
 from __future__ import annotations
 
