@@ -3,7 +3,6 @@
 VeriFlow 从自然语言描述出发，自动生成标准化 JSON 工作流，构建 JCPN（JSON-based Colored Petri Net）模型，
 运行可达图形式化验证与缺陷定位，生成修复建议并在用户确认后应用，最终交付可验证的正确工作流。
 
-- 论文：*Source-Aware Formal Verification and Defect Localization of LLM-Generated Workflows Using Colored Petri Nets*（投稿 Information Sciences）
 - 在线演示：https://veriflow-jqel.onrender.com
 
 ## 快速启动
@@ -58,7 +57,7 @@ veriflow/
 └── experiment_results.json 主实验输出（95 底版 × 552 评测用例）
 ```
 
-## 实验数据（论文口径，2026-10 平衡版）
+## 实验数据（2026-10 平衡版）
 
 - **数据集**：95 个干净底版（n8n 41 / Dify 24 / Coze 30）+ 457 个受控注入缺陷样本 = **552 个评测用例**
   （每底版最多注入 6 类缺陷，注入失败的跳过，共跳过 113 次）
@@ -71,13 +70,13 @@ veriflow/
 | Graph static checker | 98.7% | 81.2% | 89.1% | 83.5% | 371 | 5 | 90 | 86 |
 | **Proposed JCPN** | **98.9%** | **99.8%** | **99.3%** | **98.9%** | **456** | **5** | **90** | **1** |
 
-- 可达图验证：98 节点规模平均 **小于 8 ms**（localization 与 scalability 详见论文）
+- 可达图验证：98 节点规模平均 **小于 8 ms**（localization 与 scalability 详见实验报告）
 
-- **样本目录 `real_samples/`**：包含论文全部真实样本——n8n 41、Dify 24、Coze 162（完整采集池；评测按 seed=42 抽取其中 30 个为底版）。来源与许可见 `real_samples/SOURCES.md`，注入方式见 `defect_injector.py`。
+- **样本目录 `real_samples/`**：包含全部真实样本——n8n 41、Dify 24、Coze 162（完整采集池；评测按 seed=42 抽取其中 30 个为底版）。来源与许可见 `real_samples/SOURCES.md`，注入方式见 `defect_injector.py`。
 - 样本逐条检测见网页"样本与检测过程"按钮（/api/samples）
 
 ## 已知局限
 
-- variable_constraint（数据域不一致）不自动修复，需人工复核（对应论文"不修复语义缺陷"边界）。
+- variable_constraint（数据域不一致）不自动修复，需人工复核（对应"不修复语义缺陷"边界）。
 - 模板库内置 8 个高频场景；未命中时走通用步骤解析，复杂嵌套结构建议提供更完整的描述。
 - 会话状态存内存（单用户演示），生产需换持久化。

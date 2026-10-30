@@ -5,9 +5,9 @@
 - **95 个干净底版**：n8n 41 / Dify 24 / Coze 30（三平台均衡）
 - **457 个注入样本**：每底版最多注入 6 类缺陷（失败则跳过，共跳过 113 次）
 - **总计 552 个评测案例**（95 干净 + 457 注入）
-- 来源：n8n 社区模板（wassupjay/n8n-free-templates，202 个 JSON 跨类别选 30 个）、Dify（aws-samples 21 + 社区 4）、Coze（Hammer1/cozeworkflows 162 个随机抽 30）
+- 来源：n8n（41 个，官方/社区公开模板，详见 `real_samples/SOURCES.md`）、Dify（aws-samples 21 + 社区 3）、Coze（Hammer1/cozeworkflows 162 个随机抽 30）
 
-## 修复的三个审稿硬伤
+## 三个已修复的历史问题
 
 1. **isolated_node 双漏 18 个** → 根因：注入器选了 `is_alt_entry=True` 的 n8n AI Agent 子节点（Webhook/Text Splitter/Embeddings/Memory），Graph 和 JCPN 都豁免这些节点。修复：注入器跳过 is_alt_entry。
 2. **Graph unreachable_node 仅 55.8%** → 根因：Graph BFS 从所有入度=0 节点出发，注入后被断开的节点变成新入口，被当成合法起点。修复：Graph 只从覆盖节点最多的"主入口"出发 BFS。
@@ -40,7 +40,7 @@
 | Dify | 24 | 90.3% | 97.6% |
 | Coze | 30 | 88.9% | 100% |
 
-## 关键叙事（给论文）
+## 关键结论
 
 1. **Graph 不是稻草人**：F1=89.1%，结构类缺陷全中，能检出绝大多数问题。
 2. **JCPN 的核心优势在语义类**：variable_constraint 100% vs Graph 5.6%——这是颜色集/类型检查的独有能力。
