@@ -3,9 +3,11 @@
 VeriFlow 从自然语言描述出发，自动生成标准化 JSON 工作流，构建 JCPN（JSON-based Colored Petri Net）模型，
 运行可达图形式化验证与缺陷定位，生成修复建议并在用户确认后应用，最终交付可验证的正确工作流。
 
-- 在线演示：https://veriflow-jqel.onrender.com
+## 在线体验
 
-## 快速启动
+直接访问 https://veriflow-jqel.onrender.com ，无需本地部署即可试用。
+
+## 本地部署
 
 ```powershell
 cd veriflow
@@ -13,7 +15,7 @@ python -m pip install flask   # 首次
 python app.py
 ```
 
-浏览器打开 http://127.0.0.1:5000 （默认中文界面，顶部可切 EN）。
+启动后浏览器打开 http://127.0.0.1:5000 （本地地址，仅本地部署运行时使用；默认中文界面，顶部可切 EN）。
 
 试用输入示例：
 - 学生请假审批流程，三天以内辅导员审批，超过三天学院审批，通过后通知学生并登记
