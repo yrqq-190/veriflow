@@ -156,6 +156,14 @@
   var samplesModal = document.getElementById("samplesModal");
   var samplesBody = document.getElementById("samplesBody");
 
+  // 澄清芯片点选（事件委托，避免为每次问答重复绑定）
+  document.addEventListener("click", function (ev) {
+    var el = ev.target;
+    if (!el || !el.classList || !el.classList.contains("chip")) return;
+    ev.preventDefault();
+    answerChip(el.getAttribute("data-q"), el.getAttribute("data-a"));
+  });
+
   function addMessage(role, html) {
     var m = document.createElement("div");
     m.className = "message " + role;
@@ -400,11 +408,20 @@
     var html = "<p><b>" + esc(t("clarifyTitle")) + "</b></p>";
     questions.forEach(function (q) {
       html += '<div class="report-card"><span>?</span><div><h3>' + esc(q.id) + "</h3><p>" +
-        esc(q.question) + "</p></div></div>";
+        esc(q.question) + "</p>";
+      if (q.options && q.options.length) {
+        html += '<div class="clarify-chips">';
+        q.options.forEach(function (o) {
+          html += '<button type="button" class="chip" data-q="' + esc(q.id) +
+            '" data-a="' + esc(o) + '">' + esc(o) + "</button>";
+        });
+        html += "</div>";
+      }
+      html += "</div></div>";
     });
     html += '<div class="repair"><div><p class="eyebrow">ANSWER</p><h3>' +
-      esc(lang === "en" ? "Provide your answers" : "请回答") +
-      '</h3><p>' + esc(lang === "en" ? "Answers will be merged into the request and re-generated." : "你的回答会合并进需求，重新生成工作流。") +
+      esc(lang === "en" ? "Pick an option or type your answer" : "点选选项，或直接输入回答") +
+      '</h3><p>' + esc(lang === "en" ? "Your answer is recorded per question and generation continues; the same question is not asked twice." : "回答会按问题分别记录并继续生成；同一个问题不会重复追问。") +
       "</p></div></div>";
     return html;
   }
@@ -464,12 +481,9 @@
     });
   }
 
-  function runClarify(text) {
-    var answers = {};
-    var qs = (current && current.questions) || [];
-    if (qs.length) answers[qs[0].id] = text;
+  function submitClarify(answers) {
     awaitingClarify = false;
-    renderSteps([{ stage: "requirements_clarification", status: "active", note: esc(lang === "en" ? "Merging your answers…" : "正在合并你的回答…") }]);
+    renderSteps([{ stage: "requirements_clarification", status: "active", note: esc(lang === "en" ? "Recording your answer…" : "正在记录你的回答…") }]);
     var typing = addMessage("assistant", '<div class="msg-typing">' + esc(lang === "en" ? "Re-generating…" : "正在重新生成…") + "</div>");
     post("/api/clarify", { text: lastText, answers: answers }).then(function (res) {
       handlePipelineResult(res, typing);
@@ -477,6 +491,21 @@
       typing.remove();
       addMessage("assistant", "<p class='badge'>" + esc("Error: " + e) + "</p>");
     });
+  }
+
+  function runClarify(text) {
+    var answers = {};
+    var qs = (current && current.questions) || [];
+    if (qs.length) answers[qs[0].id] = text;
+    submitClarify(answers);
+  }
+
+  function answerChip(qid, answer) {
+    if (!awaitingClarify) return;
+    addMessage("user", "<p>" + esc(answer) + "</p>");
+    var answers = {};
+    answers[qid] = answer;
+    submitClarify(answers);
   }
 
   function applyRepairs(accepted) {

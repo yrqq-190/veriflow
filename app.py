@@ -18,7 +18,7 @@ from __future__ import annotations
 import json
 import os
 import threading
-from typing import Any, Dict, List
+from typing import Any, Dict, Iterable, List, Optional
 
 from flask import Flask, jsonify, request, send_from_directory, session
 
@@ -91,8 +91,17 @@ def _stage(name: str, ok: bool, note: str) -> Dict[str, Any]:
     return {"stage": name, "status": "done" if ok else "blocked", "note": note}
 
 
-def run_pipeline(text: str) -> Dict[str, Any]:
-    """执行完整管道，返回阶段记录与中间产物。"""
+SLOT_MAP = {"q_topic": "topic", "q_action": "action",
+            "q_else": "else", "q_msg_platform": "msg_platform"}
+
+
+def run_pipeline(text: str, slots: Optional[Dict[str, Any]] = None,
+                 asked: Optional[Iterable[str]] = None) -> Dict[str, Any]:
+    """执行完整管道，返回阶段记录与中间产物。
+
+    slots 是澄清阶段的结构化回答（topic/action/else/msg_platform）；
+    asked 是本会话已经问过的问题 id，用于澄清预算：同一问题不再重复提问。
+    """
     steps: List[Dict[str, Any]] = []
     text = (text or "").strip()
     if not text:
@@ -100,10 +109,16 @@ def run_pipeline(text: str) -> Dict[str, Any]:
 
     steps.append(_stage("requirements_capture", True, text))
 
-    # --- Requirements analysis + clarification（必要处确认，而非一次性生成）---
-    intent = detect_intent(text)
+    slots = dict(slots or {})
+    asked_list = list(asked or [])
+
+    # --- Requirements analysis + clarification（必要处确认，而非一次性盲目生成）---
     from nl2json import clarify_questions
-    questions = clarify_questions(text)
+    intent = detect_intent(text, slots)
+    questions = clarify_questions(text, slots, asked_list)
+    # 澄清预算是否已经把问题挡住（用于诚实标注"按已知信息生成"）
+    suppressed = bool(asked_list) and not questions and bool(
+        clarify_questions(text, slots, None))
     if questions:
         steps.append(_stage("requirements_analysis", True,
                             "检测到需求歧义 / 缺省项，需要用户澄清"))
@@ -113,15 +128,29 @@ def run_pipeline(text: str) -> Dict[str, Any]:
         steps.append(_stage("requirements_confirmation", False,
                             "待澄清后确认需求"))
         return {"status": "awaiting_clarification", "questions": questions,
-                "steps": steps, "text": text}
-    steps.append(_stage("requirements_analysis", True,
-                        "意图识别：模板命中或通用解析"))
-    steps.append(_stage("requirements_clarification", True, "无需澄清（无歧义）"))
+                "steps": steps, "text": text, "slots": slots,
+                "asked": asked_list}
+    if suppressed:
+        steps.append(_stage("requirements_analysis", True,
+                            "澄清预算已用尽：同一问题不重复提问，按已知信息生成"))
+        steps.append(_stage("requirements_clarification", True,
+                            "已收到用户回答（question ids: "
+                            + ", ".join(asked_list) + "），继续生成"))
+    elif slots:
+        steps.append(_stage("requirements_analysis", True,
+                            "已收到结构化澄清回答（"
+                            + "、".join(f"{k}={v}" for k, v in slots.items())
+                            + "）"))
+        steps.append(_stage("requirements_clarification", True, "澄清完成"))
+    else:
+        steps.append(_stage("requirements_analysis", True,
+                            "意图识别：模板命中或通用解析"))
+        steps.append(_stage("requirements_clarification", True, "无需澄清（无歧义）"))
     steps.append(_stage("requirements_confirmation", True,
                         "需求已确认（默认接受；可回退修改）"))
 
     # --- Workflow planning + JSON IR ---
-    wf, _, gen_stage = nl2json(text)
+    wf, _, gen_stage = nl2json(text, slots, asked_list)
     steps.append(_stage("workflow_planning", True,
                         f"工作流规划完成（生成模式: {gen_stage}）"))
     steps.append(_stage("json_intermediate_representation", True,
@@ -162,8 +191,9 @@ def run_pipeline(text: str) -> Dict[str, Any]:
 
     return {"status": "awaiting_repair" if repairs else "clean",
             "steps": steps, "workflow": pp["workflow"], "verify": verify_out,
-            "repairs": repairs, "text": text,
-            "model_digest": _model_digest(model)}
+            "repairs": repairs, "text": text, "slots": slots,
+            "asked": asked_list, "clarification_exhausted": suppressed,
+            "gen_stage": gen_stage, "model_digest": _model_digest(model)}
 
 
 # ---------------------------------------------------------------------------
@@ -245,24 +275,35 @@ def api_generate():
     data = request.get_json(force=True, silent=True) or {}
     text = data.get("text", "")
     with _lock:
-        result = run_pipeline(text)
+        result = run_pipeline(text, {}, [])
         SESSIONS[_sid()] = result
     return jsonify(result)
 
 
 @app.post("/api/clarify")
 def api_clarify():
-    """用户回答澄清问题后重新生成。answers: {question_id: answer}"""
+    """用户回答澄清问题后重新生成。
+
+    answers: {question_id: answer}。按 question id 落进结构化槽位，而不是把答案
+    拼回原文再猜——这是"同一问题被反复问"的根治点。同时把问过的 id 计入预算。
+    """
     data = request.get_json(force=True, silent=True) or {}
     text = data.get("text", "")
     answers = data.get("answers", {}) or {}
-    # 把澄清答案并入描述（简化：直接附加关键回答），重新走管道
-    augmented = text
-    for qid, ans in answers.items():
-        if ans and isinstance(ans, str):
-            augmented = f"{augmented}。补充说明：{ans}"
     with _lock:
-        result = run_pipeline(augmented)
+        st = SESSIONS.get(_sid()) or {}
+        slots = dict(st.get("slots") or {})
+        asked_list = list(st.get("asked") or [])
+        for qid, ans in answers.items():
+            key = SLOT_MAP.get(qid)
+            if key and isinstance(ans, str) and ans.strip():
+                slots[key] = ans.strip()
+            if qid not in asked_list:
+                asked_list.append(qid)
+        if not asked_list:
+            # 没有会话记录时，至少把本次回答的 id 计入预算，保证不会原地重问
+            asked_list = [q for q in answers.keys()]
+        result = run_pipeline(text, slots, asked_list)
         SESSIONS[_sid()] = result
     return jsonify(result)
 

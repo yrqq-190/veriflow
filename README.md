@@ -27,13 +27,30 @@ python app.py
 流程规划 → JSON 中间表示 → JCPN 建模 → 形式化验证 →
 缺陷修复（用户确认后应用）→ 输出工作流
 
+### 澄清阶段的行为契约
+
+澄清是"必要处确认"，不是"反复追问"，因此有三条硬约束：
+
+1. **答案落槽位，不拼回原文**：`answers` 按 `question_id` 写入结构化槽位
+   （`q_topic→topic`、`q_action→action`、`q_else→else`、`q_msg_platform→msg_platform`），
+   主题槽位优先于原文关键词。把答案拼成一段新描述再重新猜测，会让"自生成"意图与
+   缺主题同时成立，从而同一问题无限重问。
+2. **主题必有出路**：主题命中模板 → 模板实例化；不入模板库 → 生成"主题骨架"
+   （`gen_stage=generic_from_topic`，三步最小链），并在 `workflow.assumptions`
+   里声明"步骤是骨架、业务动作待补充"。宁可交一个标注清楚的粗工作流，也不假装读懂。
+3. **澄清预算**：同一个 `question_id` 只问一次。第二轮即使用户没答上来，也强制生成，
+   并在阶段记录里标 `clarification_exhausted`。因此管道一定终止，不会死循环。
+
+前端把 `options` 渲染成可点选芯片，点选即回答；自由文本回答仍可用，作用于当前
+第一个未答问题。
+
 ## API
 
 | 端点 | 说明 |
 |---|---|
 | `GET /` | 前端页面（webui/） |
 | `POST /api/generate` | `{text}` → 管道执行；歧义时返回 `awaiting_clarification` + 澄清问题 |
-| `POST /api/clarify` | `{text, answers}` → 合并澄清后重新生成 |
+| `POST /api/clarify` | `{text, answers}` → 按 question_id 落槽位后重新生成（同一问题不再重复追问） |
 | `POST /api/confirm` | `{accepted: [repair_id]}` → 应用修复并重验证 |
 | `POST /api/export` | 导出最终 JSON |
 | `GET /api/health` | 健康检查 |

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Iterable, Any, Dict, List, Optional, Tuple
 
 
 # ---------------------------------------------------------------------------
@@ -162,21 +162,58 @@ _ACTION_VERB_RE = re.compile(r"(提交|审批|审核|创建|发送|通知|处理
 _SELF_GEN_RE = re.compile(r"(你自己|你来|帮我(?:设计|生成|做|弄)|随便(?:生成|设计|来)|没想好|想不出来|设计一个|生成一个|全权|全面考虑)")
 
 
-def detect_intent(text: str) -> Dict[str, Any]:
-    """意图识别：返回 {template_id?, steps, has_cond, has_loop, has_msg, ambiguity}"""
+def resolve_topic(topic: str) -> Optional[str]:
+    """自由主题 → 模板 id。
+
+    先按模板 id / 模板名精确匹配，再按关键字与名称包含匹配。匹配不上返回 None，
+    由调用方走"主题骨架"路径——绝不把用户给的主题当成歧义再问一遍。
+    """
+    if not topic:
+        return None
+    t = topic.strip().lower()
+    if not t:
+        return None
+    for tid, tmpl in TEMPLATES.items():
+        name = str(tmpl.get("name", "")).lower()
+        if t == tid or (name and t == name):
+            return tid
+        if any(str(kw).lower() in t for kw in tmpl.get("keywords", [])):
+            return tid
+    return None
+
+
+def detect_intent(text: str, slots: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """意图识别：返回 {template_id?, topic?, steps, has_cond, has_loop, has_msg, ambiguity}
+
+    slots 是澄清阶段的结构化回答（topic / action / else / msg_platform）。
+    主题槽位一旦给出：即便原文是"你帮我生成一个流程"，也不再判为缺主题。
+    """
+    slots = slots or {}
     intent: Dict[str, Any] = {"steps": [], "has_cond": False, "has_loop": False,
                               "has_msg": False, "template_id": None, "ambiguity": [],
-                              "self_generate": False}
+                              "self_generate": False, "topic": None,
+                              "template_source": None}
     t = text.strip()
+    topic = str(slots.get("topic") or "").strip()
+    if topic:
+        intent["topic"] = topic
+        tid = resolve_topic(topic)
+        if tid:
+            intent["template_id"] = tid
+            intent["template_source"] = "clarification"
+        intent["self_generate"] = False
     # 0) “AI 自生成”指令标记（用户没想好 → 由主题词导向模板，否则澄清主题）
     if _SELF_GEN_RE.search(t):
         intent["self_generate"] = True
     # 1) 模板命中（主题词优先）
-    for tid, tmpl in TEMPLATES.items():
-        if any(kw in t for kw in tmpl["keywords"]):
-            intent["template_id"] = tid
-            break
-    if intent.get("self_generate") and intent["template_id"] is None:
+    if intent["template_id"] is None:
+        for tid, tmpl in TEMPLATES.items():
+            if any(kw in t for kw in tmpl["keywords"]):
+                intent["template_id"] = tid
+                intent["template_source"] = "text_keyword"
+                break
+    if (intent.get("self_generate") and intent["template_id"] is None
+            and not intent.get("topic")):
         intent["ambiguity"].append("need_topic")
     # 2) 结构启发式
     if _IF_RE.search(t):
@@ -197,31 +234,46 @@ def detect_intent(text: str) -> Dict[str, Any]:
     return intent
 
 
-def clarify_questions(text: str) -> List[Dict[str, Any]]:
-    """需求歧义时返回澄清问题（必要处确认，而非一次性盲目生成）。"""
-    intent = detect_intent(text)
+def clarify_questions(text: str, slots: Optional[Dict[str, Any]] = None,
+                      asked: Optional[Iterable[str]] = None) -> List[Dict[str, Any]]:
+    """需求歧义时返回澄清问题（必要处确认，而非一次性盲目生成）。
+
+    两条收敛保证：
+    - 已经有结构化回答的问题不再问（slot 已填）；
+    - 同一个 question id 只问一次（asked 预算），第二轮强制生成。
+    """
+    slots = slots or {}
+    asked_set = set(asked or ())
+    intent = detect_intent(text, slots)
     qs: List[Dict[str, Any]] = []
-    if intent["template_id"] is None and "no_action" in intent["ambiguity"]:
+    if (intent["template_id"] is None and not intent.get("topic")
+            and "no_action" in intent["ambiguity"]
+            and not slots.get("action") and "q_action" not in asked_set):
         qs.append({
             "id": "q_action", "phase": "requirements_clarification",
             "question": "请补充工作流要完成的动作（如：提交申请→审批→通知）",
             "options": None})
-    if intent["template_id"] is None and "too_vague" in intent["ambiguity"]:
+    if (intent["template_id"] is None and not intent.get("topic")
+            and "too_vague" in intent["ambiguity"] and "q_topic" not in asked_set):
         qs.append({
             "id": "q_topic", "phase": "requirements_clarification",
             "question": "请补充工作流主题（如：请假审批 / 订单处理 / 内容发布 / 数据日报 / 工单处理 / 消息通知）",
-            "options": list(TEMPLATES.keys())})
-    if intent.get("self_generate") and "need_topic" in intent["ambiguity"]:
+            "options": [TEMPLATES[k]["name"] for k in TEMPLATES]})
+    if (intent.get("self_generate") and "need_topic" in intent["ambiguity"]
+            and "q_topic" not in asked_set):
         qs.append({
             "id": "q_topic", "phase": "requirements_clarification",
             "question": "你想让我生成哪个场景的工作流？我会根据主题自动补齐完整步骤并验证（如：海关一体化通关 / 请假审批 / 订单处理 / 数据日报）",
-            "options": list(TEMPLATES.keys())})
-    if intent["has_cond"] and not _ELSE_RE.search(text) and not intent["template_id"]:
+            "options": [TEMPLATES[k]["name"] for k in TEMPLATES]})
+    if (intent["has_cond"] and not _ELSE_RE.search(text)
+            and not intent["template_id"] and not slots.get("else")
+            and "q_else" not in asked_set):
         qs.append({
             "id": "q_else", "phase": "requirements_clarification",
             "question": "条件不满足时如何处理？系统将默认生成 else 分支连接正常终点（missing-branch 缺陷修复策略）。",
             "options": ["默认生成 else", "不需要 else 分支"]})
-    if intent["has_msg"] and intent["template_id"] is None:
+    if (intent["has_msg"] and intent["template_id"] is None
+            and not slots.get("msg_platform") and "q_msg_platform" not in asked_set):
         qs.append({
             "id": "q_msg_platform", "phase": "requirements_clarification",
             "question": "消息通过哪个平台发送？（影响适配器语义：n8n/Dify/Coze）",
@@ -272,36 +324,81 @@ def build_generic(intent: Dict[str, Any], text: str) -> Dict[str, Any]:
             "source": "nl2json_rule_engine", "nodes": nodes, "edges": edges}
 
 
-def nl2json(text: str) -> Tuple[Dict[str, Any], List[Dict[str, Any]], str]:
+def build_topic_skeleton(intent: Dict[str, Any], text: str) -> Dict[str, Any]:
+    """主题已确定、但不在模板库时的最小骨架。
+
+    只有三步，且在 assumptions 里显式声明"步骤是骨架、业务细节未补齐"——
+    宁可交一个标注清楚的粗工作流，也不假装读懂了用户没说的动作。
+    """
+    topic = intent.get("topic") or "业务流程"
+    steps = [f"受理{topic}的业务请求", f"执行{topic}的核心业务处理",
+             "归档处理结果并向用户反馈"]
+    nodes = [{"id": _make_id(i), "type": "task", "name": name}
+             for i, name in enumerate(steps)]
+    edges = [{"from": _make_id(i), "to": _make_id(i + 1)} for i in range(len(steps) - 1)]
+    return {
+        "name": f"{topic}工作流（骨架）",
+        "description": text.strip(),
+        "version": "1.0",
+        "source": "nl2json_topic_skeleton",
+        "assumptions": [
+            "主题由用户澄清阶段给出，未命中内置模板",
+            "步骤为最小骨架（接收/处理/回复），具体业务动作需要用户补充",
+        ],
+        "nodes": nodes,
+        "edges": edges,
+    }
+
+
+def nl2json(text: str, slots: Optional[Dict[str, Any]] = None,
+            asked: Optional[Iterable[str]] = None,
+            allow_questions: bool = True) -> Tuple[Dict[str, Any], List[Dict[str, Any]], str]:
     """
     主入口：自然语言 → (标准化JSON, 澄清问题列表, 阶段说明)。
     优先级：LLM（DeepSeek，需 DEEPSEEK_API_KEY）→ 规则模板 → 通用解析。
     返回的 JSON 是标准形式（与 adapters 输出同构），可直接送入 preprocess → JCPN。
     """
     import os
-    intent = detect_intent(text)
-    questions = clarify_questions(text)
+    slots = slots or {}
+    parse_text = text
+    if slots.get("action"):
+        parse_text = f"{text}。{slots['action']}"
+    intent = detect_intent(parse_text, slots)
+    questions = (clarify_questions(parse_text, slots, asked)
+                 if allow_questions else [])
 
-    # 1) LLM 优先（如果配了 key）
+    # 1) LLM 优先（如果配了 key）；主题槽位一并告诉模型
     api_key = os.environ.get("DEEPSEEK_API_KEY") or os.environ.get("OPENAI_API_KEY")
     wf: Optional[Dict[str, Any]] = None
     stage = "rule"
     if api_key:
         try:
-            wf = llm_json(text)
+            llm_text = parse_text
+            if intent.get("topic"):
+                llm_text = f"{parse_text}（工作流主题：{intent['topic']}）"
+            wf = llm_json(llm_text)
             stage = "llm"
         except Exception as e:  # noqa: BLE001
             # LLM 失败，回退规则引擎；把原因记在 stage 里方便调试
             stage = f"llm_fallback({type(e).__name__})"
 
-    # 2) 规则引擎兜底
+    # 2) 规则引擎兜底：模板 → 主题骨架 → 通用解析
     if wf is None:
         if intent["template_id"]:
-            wf = build_from_template(intent["template_id"], text)
+            wf = build_from_template(intent["template_id"], parse_text)
             stage = stage if "fallback" in stage else "template"
+        elif intent.get("topic"):
+            wf = build_topic_skeleton(intent, parse_text)
+            stage = stage if "fallback" in stage else "generic_from_topic"
         else:
-            wf = build_generic(intent, text)
+            wf = build_generic(intent, parse_text)
             stage = stage if "fallback" in stage else "generic"
+
+    # 消息平台槽位：显式写到消息节点上（不覆盖已有声明）
+    if slots.get("msg_platform"):
+        for n in wf.get("nodes", []):
+            if n.get("type") == "message":
+                n.setdefault("platform", str(slots["msg_platform"]))
 
     wf.setdefault("version", "1.0")
     wf.setdefault("nodes", [])

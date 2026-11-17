@@ -78,6 +78,9 @@ pre{margin:12px 0;background:#09101a;border:1px solid #26344b;border-radius:8px;
 .repair h3{margin:0 0 6px;font-size:14px}
 .repair p{margin:0;color:var(--muted);font-size:12px;line-height:1.5}
 .repair-options{display:flex;flex-direction:column;gap:8px;margin:14px 0}
+.clarify-chips{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 2px}
+.chip{padding:6px 12px;border:1px solid #3a4250;border-radius:14px;background:transparent;color:inherit;font-size:12px;cursor:pointer}
+.chip:hover{border-color:#9aa4b2}
 .repair-option{display:flex;gap:10px;align-items:flex-start;background:#0a111c;border:1px solid #2e3b4f;border-radius:7px;padding:11px 12px;cursor:pointer}
 .repair-option:hover{border-color:#4a5c78}
 .repair-option input{margin-top:3px;accent-color:var(--lime)}
