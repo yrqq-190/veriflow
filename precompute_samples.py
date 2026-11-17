@@ -5,7 +5,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 from adapters import parse_dify, parse_coze, parse_n8n
 from preprocess import preprocess
-from verification import verify_workflow
+from verification import DEFAULT_MAX_STATES, verify_workflow
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 REAL = os.path.join(BASE, "real_samples")
@@ -38,7 +38,7 @@ for fn in selected_files:
         else:
             std = parse_n8n(json.load(open(path, encoding="utf-8")), fn)
         cleaned = preprocess(std)["workflow"]
-        v = verify_workflow(cleaned)
+        v = verify_workflow(cleaned, max_states=DEFAULT_MAX_STATES)
         samples.append({
             "id": os.path.splitext(fn)[0],
             "platform": std.get("platform", "?"),

@@ -61,7 +61,8 @@
         broken_message: "Broken message interaction",
         missing_branch: "Missing branch",
         isolated_node: "Isolated node",
-        variable_constraint: "Variable-constraint error"
+        variable_constraint: "Variable-constraint error",
+        analysis_incomplete: "Inconclusive (state space truncated)"
       }
     },
     zh: {
@@ -116,7 +117,8 @@
         broken_message: "消息交互断裂",
         missing_branch: "缺失分支",
         isolated_node: "孤立节点",
-        variable_constraint: "变量约束错误"
+        variable_constraint: "变量约束错误",
+        analysis_incomplete: "结论不可用（状态空间截断）"
       }
     }
   };
@@ -344,15 +346,32 @@
       verify.defects.forEach(function (d) {
         var srcs = (d.sources || []).join(", ");
         var src = d.source_id || (d.sources && d.sources.length ? srcs : "workflow");
+        var extra = "";
+        if (d.mechanism) {
+          extra += "<p><b>" + esc(lang === "en" ? "Decision basis" : "判定依据") + ":</b> " + esc(d.mechanism) + "</p>";
+        }
+        if (d.residual && d.residual.length) {
+          extra += "<p><b>" + esc(lang === "en" ? "Residual tokens" : "残留 token") + ":</b> " + d.residual.length + "</p>";
+        }
+        if (d.witness_paths && d.witness_paths.length) {
+          var w = (d.witness_paths[0] || []).join(" → ");
+          extra += "<p><b>" + esc(lang === "en" ? "Witness path" : "见证路径") + ":</b> <code>" + esc(w.length > 240 ? w.slice(0, 240) + "…" : w) + "</code></p>";
+        }
+        if (d.suppressed) {
+          extra += "<p><b>" + esc(lang === "en" ? "Withheld conclusions" : "被抑制的结论") + ":</b> " + esc(JSON.stringify(d.suppressed)) + "</p>";
+        }
         html += '<div class="report-card danger"><span>!</span><div>' +
           "<h3>" + esc(defectName(d.type)) + "</h3>" +
           "<p>" + esc(d.detail || "") + "</p>" +
-          "<p><b>" + esc(lang === "en" ? "Source node" : "源节点") + ":</b> " + esc(src) + "</p></div></div>";
+          "<p><b>" + esc(lang === "en" ? "Source node" : "源节点") + ":</b> " + esc(src) + "</p>" +
+          extra + "</div></div>";
       });
     } else {
       html += '<div class="report-card"><span>✓</span><div><h3>' +
         esc(lang === "en" ? "Verification passed" : "验证通过") +
-        "</h3><p>" + esc(lang === "en" ? "All reachable states terminate or reach a completion marking. 5 defect classes checked: unreachable node, unexpected deadlock, non-termination cycle, broken message, variable constraint." : "所有可达状态均终止或到达完成标识。已检查 5 类缺陷：不可达节点、意外死锁、非终止循环、断裂消息、变量约束。") + "</p></div></div>";
+        "</h3><p>" + esc(lang === "en"
+          ? "Every reachable state terminates in a completion marking, all activities are reachable, and no residual token, broken message or type violation was found. Checked properties: option to complete, proper completion, no dead transitions, termination, branch totality, message pairing, typed data flow, structural sanity, honest truncation (see the detection checklist in Samples)."
+          : "所有可达状态都在完成标识处终止，所有活动均可达，且无残留 token、断裂消息与类型冲突。已检查的性质：选项可完成性、正确完成性、无死变迁、终止性、分支完整性、消息配对、类型化数据流、结构合法性、截断诚实性（完整清单见「样本与检测过程」）。") + "</p></div></div>";
     }
     reportBody.innerHTML = html;
   }
@@ -517,12 +536,28 @@
     samplesBody.innerHTML = "<p class='empty'>" + esc(t("samplesLoading")) + "</p>";
     fetch("/api/samples").then(function (r) { return r.json(); }).then(function (d) {
       var html = "";
+      // 0) 检测清单：每条性质的形式化依据与判定方式
+      var chk = d.checklist || [];
+      if (chk.length) {
+        html += "<h3>检测清单 · 每条性质的判定方式与可靠性边界</h3>";
+        html += "<table class='samples-table'><thead><tr><th>#</th><th>性质</th><th>形式化依据</th><th>判定方式</th><th>对应缺陷</th></tr></thead><tbody>";
+        chk.forEach(function (c) {
+          html += "<tr><td>" + esc(c.id) + "</td><td><b>" + esc(lang === "en" ? c.title : c.title_zh) + "</b></td><td>" +
+            esc(c.formal) + "</td><td><code>" + esc(c.method) + "</code><br><small>" + esc(c.how) + "</small></td><td>" +
+            esc((c.types || []).join(", ")) + "</td></tr>";
+        });
+        html += "</tbody></table>";
+      }
+
       // 1) 样本清单
       html += "<h3>真实平台样本 · 逐样本检测（" + d.samples.length + " 个，" + d.elapsed_s + " s）</h3>";
       html += "<table class='samples-table'><thead><tr><th>样本</th><th>平台</th><th>节点</th><th>|P|</th><th>|RG|</th><th>验证结果</th><th>检测到的缺陷</th></tr></thead><tbody>";
       d.samples.forEach(function (s) {
+        var onlyIncomplete = s.defective && (s.defects || []).length &&
+          (s.defects || []).every(function (x) { return x === "analysis_incomplete"; });
         var verdict = s.error ? "<span class='badge'>err</span>" :
-          (s.defective ? "<span class='badge'>缺陷</span>" : "<span class='badge ok'>通过</span>");
+          (onlyIncomplete ? "<span class='badge'>结论不可用</span>" :
+            (s.defective ? "<span class='badge'>缺陷</span>" : "<span class='badge ok'>通过</span>"));
         var defects = s.defects ? s.defects.map(function (x) { return esc(defectName(x)); }).join(", ") : "";
         html += "<tr><td>" + esc(s.id) + "</td><td>" + esc(s.platform || "?") + "</td><td>" + (s.nodes || 0) +
           "</td><td>" + (s["|P|"] || 0) + "</td><td>" + (s["|RG|"] || 0) + "</td><td>" + verdict +
@@ -535,6 +570,9 @@
       var names = { jcpn: "JCPN", graph: "Graph static checker", schema: "JSON Schema" };
       var order = ["schema", "graph", "jcpn"];
       html += "<h3>评估对比（真实平台数据 · 实测，不参照论文）</h3>";
+      if (d.metric_version) {
+        html += "<p class='sample-note'>口径：" + esc(d.metric_version) + " — " + esc(d.metric_note || "") + "</p>";
+      }
       html += "<table class='samples-table'><thead><tr><th>Method</th><th>Precision</th><th>Recall</th><th>F1</th><th>Accuracy</th></tr></thead><tbody>";
       order.forEach(function (k) {
         var r = ev[k];
@@ -543,6 +581,54 @@
           "</td><td>" + pct(r.f1) + "</td><td>" + pct(r.accuracy) + "</td></tr>";
       });
       html += "</tbody></table>";
+
+      // 2b) 按缺陷类命中率（严格口径）
+      var by = d.by_type || {};
+      var keys = Object.keys(by);
+      if (keys.length) {
+        html += "<h3>按缺陷类命中率（严格口径：类型 + 定位）</h3>";
+        html += "<table class='samples-table'><thead><tr><th>缺陷类</th><th>注入数</th><th>松口径</th><th>严格</th><th>消融（仅状态空间）</th></tr></thead><tbody>";
+        keys.sort().forEach(function (k) {
+          var v = by[k];
+          html += "<tr><td>" + esc(defectName(k)) + "</td><td>" + v.n + "</td><td>" +
+            pct(v.loose_hit_rate) + "</td><td>" + pct(v.strict_hit_rate) + "</td><td>" +
+            pct(v.ablation_hit_rate) + "</td></tr>";
+        });
+        html += "</tbody></table>";
+      }
+
+      // 2c) 干净底版：误报与被抑制结论分开列
+      var fp = d.clean_fp || [];
+      var counts = d.clean_fp_counts || {};
+      var inc = d.clean_inconclusive || [];
+      html += "<h3>干净底版上的报告（不掩盖、不删样本）</h3>";
+      html += "<p>判为有缺陷的底版共 " + fp.length + " 个；其中被核实为「源模板自带缺陷」的 " +
+        (counts.known_source_defect || 0) + " 个，调整后误报 " + (counts.adjusted === undefined ? "—" : counts.adjusted) + " 个。" +
+        (inc.length ? "另有 " + inc.length + " 个底版状态空间超限，结论标注为不可用而非缺陷。" : "") + "</p>";
+      if (fp.length) {
+        html += "<table class='samples-table'><thead><tr><th>样本</th><th>报告类型</th><th>说明</th></tr></thead><tbody>";
+        fp.forEach(function (x) {
+          html += "<tr><td>" + esc(x.id) + "</td><td>" + esc((x.types || []).join(", ")) + "</td><td>" +
+            esc(x.known_source_defect || "—") + "</td></tr>";
+        });
+        html += "</tbody></table>";
+      }
+      if (inc.length) {
+        html += "<ul class='sample-note'>";
+        inc.forEach(function (x) { html += "<li>" + esc(x.id) + " — 状态空间超过上限，依赖可达图的结论被抑制，只报 analysis_incomplete</li>"; });
+        html += "</ul>";
+      }
+
+      // 2d) 语义口径（分支终止、截断、不可达判定）
+      var sem = d.semantics || {};
+      var semKeys = Object.keys(sem);
+      if (semKeys.length) {
+        html += "<h3>语义口径（为什么这样判）</h3><ul class='sample-note'>";
+        ["branch_termination", "truncation", "unreachable"].forEach(function (k) {
+          if (sem[k]) html += "<li><b>" + esc(k) + "</b>：" + esc(sem[k]) + "</li>";
+        });
+        html += "</ul>";
+      }
 
       // 3) 混淆矩阵（JCPN）
       var j = ev.jcpn;
@@ -555,7 +641,7 @@
 
       // 4) 数据来源说明
       html += "<p class='sample-note'>数据来源：n8n 官方 starter-kit 与 E2E 模板、Langfuse Studio 分组 demo、loomcycle 社区示例、Dify 官方示例 DSL（GitHub 公开仓库导出）；" +
-        "负样本为在其上受控注入的 5+1 类缺陷。Coze 导出为付费功能，暂无公开样例。详细报告见 balanced_experiment_report.md。</p>";
+        "负样本为在其上受控注入的 6 类缺陷。详细报告见 evaluation_strict_report.md。</p>";
       samplesBody.innerHTML = html;
     }).catch(function () {
       samplesBody.innerHTML = "<p class='empty'>" + esc(t("loadError")) + "</p>";

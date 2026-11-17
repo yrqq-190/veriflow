@@ -231,6 +231,8 @@ def parse_dify(dsl_text: str, source: str = "") -> Dict[str, Any]:
     nodes: List[Dict[str, Any]] = []
     edges: List[Dict[str, Any]] = []
     if_node_ids: set = set()
+    raw_data: Dict[str, Dict[str, Any]] = {}
+    warnings: List[str] = []
 
     for n in graph.get("nodes", []):
         d = n.get("data", {})
@@ -242,6 +244,10 @@ def parse_dify(dsl_text: str, source: str = "") -> Dict[str, Any]:
             continue
         t = d.get("type", "")
         title = d.get("title", t)
+        raw_data[nid] = d
+        # iteration 容器内部的隐式起点节点不是可执行节点
+        if t == "iteration-start":
+            continue
         if t == "start":
             std: Dict[str, Any] = {"id": nid, "type": "task", "name": title, "is_entry": True}
         elif t == "end":
@@ -272,12 +278,15 @@ def parse_dify(dsl_text: str, source: str = "") -> Dict[str, Any]:
         elif sh == "false":
             branch = "false"
         elif str(src) in if_node_ids and sh not in (None, "source", ""):
-            # Dify if-else 的额外 case 以 case UUID 作为 sourceHandle；
-            # 二分支 JCPN 下降维归到 else 侧（c=false 互斥分支）
-            branch = "false"
+            # Dify if-else 的额外 case 以 case UUID 作为 sourceHandle。
+            # 这里是 n 路分支：保留原标签，交给建模阶段生成第 n 个决策变迁，
+            # 绝不把多个互斥 case 压成同一个 false 分支。
+            branch = str(sh)
         else:
             branch = None
         edges.append({"from": str(src), "to": str(tgt), "branch": branch})
+
+    nodes, edges, warnings = _nest_dify_iterations(nodes, edges, raw_data, warnings)
 
     return {
         "version": "1.0",
@@ -286,7 +295,76 @@ def parse_dify(dsl_text: str, source: str = "") -> Dict[str, Any]:
         "source": source,
         "nodes": nodes,
         "edges": edges,
+        "warnings": warnings,
     }
+
+
+def _nest_dify_iterations(nodes: List[Dict[str, Any]],
+                          edges: List[Dict[str, Any]],
+                          raw_data: Dict[str, Dict[str, Any]],
+                          warnings: List[str]):
+    """把 iteration 容器的子画布收成 body 子网。
+
+    Dify 的迭代体是容器节点下的独立子图：子节点带 iteration_id，容器到子图
+    入口没有显式边。若把它们拍平成顶层节点，body 入口拿不到 token，整段子图
+    会被误判成不可达（本仓库早期就是这样误报的）。这里按子图内部边还原顺序，
+    收进 while.body；子图不是线性链时如实告警并保持拍平，绝不假装建模成功。
+    """
+    containers = [n for n in nodes
+                  if n["type"] == "while" and raw_data.get(n["id"], {}).get("type") in
+                  ("iteration", "loop")]
+    if not containers:
+        return nodes, edges, warnings
+
+    children_of: Dict[str, List[str]] = {}
+    for n in nodes:
+        d = raw_data.get(n["id"], {})
+        pid = str(d.get("iteration_id") or d.get("loop_id") or "")
+        if pid:
+            children_of.setdefault(pid, []).append(n["id"])
+
+    for cont in containers:
+        kids = children_of.get(cont["id"], [])
+        if not kids:
+            warnings.append(f"iteration '{cont['id']}' has no body nodes")
+            continue
+        kid_set = set(kids)
+        inner = [e for e in edges if e["from"] in kid_set and e["to"] in kid_set]
+        outer = [e for e in edges if (e["from"] in kid_set) != (e["to"] in kid_set)]
+        has_branch = any(e.get("branch") for e in inner)
+        indeg = {k: 0 for k in kid_set}
+        for e in inner:
+            indeg[e["to"]] += 1
+        roots = [k for k in kid_set if indeg[k] == 0]
+        branched = any(d > 1 for d in indeg.values())
+        by_id = {n["id"]: n for n in nodes}
+
+        if has_branch or branched or len(roots) != 1 or outer:
+            warnings.append(
+                f"iteration '{cont['id']}' body is not a linear chain "
+                f"(roots={len(roots)}, branch_edges={has_branch}, "
+                f"cross_edges={len(outer)}); kept flat")
+            continue
+
+        order: List[str] = []
+        cur = roots[0]
+        nxt = {(e["from"], e["to"]) for e in inner}
+        while cur is not None:
+            order.append(cur)
+            succ = [b for (aa, b) in nxt if aa == cur]
+            cur = succ[0] if succ else None
+        if len(order) != len(kid_set):
+            warnings.append(f"iteration '{cont['id']}' body not fully reachable; kept flat")
+            continue
+
+        cont["body"] = [by_id[k] for k in order]
+        # 迭代次数由上游集合决定，静态模型不知道集合大小：用开放条件如实
+        # 表达「循环体可能执行 0..n 次」，绝不假造成固定次数
+        cont.setdefault("condition", "iteration over upstream collection")
+        nodes = [n for n in nodes if n["id"] not in kid_set]
+        edges = [e for e in edges if e["from"] not in kid_set and e["to"] not in kid_set]
+
+    return nodes, edges, warnings
 
 
 # ===========================================================================

@@ -3,11 +3,10 @@
 VeriFlow 从自然语言描述出发，自动生成标准化 JSON 工作流，构建 JCPN（JSON-based Colored Petri Net）模型，
 运行可达图形式化验证与缺陷定位，生成修复建议并在用户确认后应用，最终交付可验证的正确工作流。
 
-## 在线体验
+形式化内核的实际语义、与设计记号的对应关系、以及明确的实现边界见
+[`docs/FORMAL_CORE.md`](docs/FORMAL_CORE.md)。
 
-直接访问 https://veriflow-jqel.onrender.com ，无需本地部署即可试用。
-
-## 本地部署
+## 快速启动
 
 ```powershell
 cd veriflow
@@ -47,38 +46,102 @@ veriflow/
 ├── app.py                  Flask 后端（阶段状态机 + REST）
 ├── nl2json.py              自然语言 → 标准化 JSON（模板库 + 规则引擎，可选 LLM）
 ├── preprocess.py           语法规范化（只报错不修复语义缺陷）
-├── jcpn_builder.py         JCPN 建模（显式 provenance 映射 μ）
-├── verification.py         可达图验证（不可达 / 死锁 / SCC 非终止 / 消息断裂）
-├── repair.py               修复建议 + 应用 + 重验证闭环
+├── jcpn_builder.py         JCPN 建模（颜色/弧表达式结构 + provenance 映射 μ）
+├── verification.py         可达图验证（绑定语义、终止标识分类、SCC 非终止、截断处理）
+├── repair.py               修复建议 + 应用 + 结构校验 + 重验证闭环
 ├── adapters.py             平台适配器（n8n / Dify / Coze）
 ├── graph_static_checker.py 图结构基线 + JSON Schema 基线
-├── defect_injector.py      缺陷注入器（受控负样本）
-├── run_balanced_experiment.py / run_final_eval.py   实验入口
-├── real_samples/           真实平台工作流样本（n8n / Dify / Coze 三平台公开导出）
-├── webui/                  双语前端（index.html / app.js / styles.css）
-└── experiment_results.json 主实验输出（95 底版 × 552 评测用例）
+├── defect_injector.py      缺陷注入器（受控负样本，注入点限定在主入口可达路径）
+├── evaluation_strict.py    严格口径评估（松口径 / 严格 / 消融三档 + 定位）
+├── export_report.py        把严格口径结果导出成网页用的 full_experiment_report.json
+├── precompute_samples.py   逐样本预计算（供 /api/samples，避免线上实时跑）
+├── tests/test_formal_core.py  形式化内核回归（24 例）
+├── docs/FORMAL_CORE.md     形式化内核说明与实现边界
+├── real_samples/           95 个真实平台工作流（n8n 41 / Dify 24 / Coze 30）
+└── webui/                  双语前端（index.html / app.js / styles.css）
 ```
 
-## 实验数据（2026-10 平衡版）
+`real_samples/` 是全部真实样本（n8n 41、Dify 24、Coze 162 采集池；评测按 seed=42 取其中 30 个 Coze 为底版），来源与许可见 [`real_samples/SOURCES.md`](real_samples/SOURCES.md)。
 
-- **数据集**：95 个干净底版（n8n 41 / Dify 24 / Coze 30）+ 457 个受控注入缺陷样本 = **552 个评测用例**
-  （每底版最多注入 6 类缺陷，注入失败的跳过，共跳过 113 次）
-- **缺陷分布**：abnormal_loop 95 / unreachable_node 95 / broken_message 93 / variable_constraint 90 / isolated_node 75 / missing_branch 9
-- **方法对比（552 用例）**
+## 评估（当前代码实测，严格口径）
 
-| Method | Precision | Recall | F1 | Accuracy | TP | FP | TN | FN |
-|---|---|---|---|---|---|---|---|---|
-| JSON Schema | — | — | — | 17.2% | 0 | 0 | 95 | 457 |
-| Graph static checker | 98.7% | 81.2% | 89.1% | 83.5% | 371 | 5 | 90 | 86 |
-| **Proposed JCPN** | **98.9%** | **99.8%** | **99.3%** | **98.9%** | **456** | **5** | **90** | **1** |
+数据：95 个真实平台底版（n8n 41 / Dify 24 / Coze 30）+ 460 个受控注入缺陷（6 类）。
+状态上限 20000；定位真值 = 注入前后结构差异涉及的节点集合（不读注入器标签）。
 
-- 可达图验证：98 节点规模平均 **小于 8 ms**（localization 与 scalability 详见实验报告）
+| 口径 | Precision | Recall | F1 | Accuracy |
+|---|---|---|---|---|
+| L 松（任一缺陷即 TP，旧口径） | 99.8% | 100.0% | 99.9% | 99.8% |
+| **S 严格（类型 + 定位）** | **99.8%** | **99.8%** | **99.8%** | **99.6%** |
+| A 消融（只用状态空间，去掉静态类型规则） | 99.7% | 80.2% | 88.9% | 83.4% |
 
-- **样本目录 `real_samples/`**：包含全部真实样本——n8n 41、Dify 24、Coze 162（完整采集池；评测按 seed=42 抽取其中 30 个为底版）。来源与许可见 `real_samples/SOURCES.md`，注入方式见 `defect_injector.py`。
-- 样本逐条检测见网页"样本与检测过程"按钮（/api/samples）
+同数据基线：Graph static P98.7 / R81.5 / F1 89.3 / Acc83.8；JSON Schema P0 / R0（只查语法，查不出语义缺陷）。
+
+`real_samples/` 是全部真实样本（n8n 41、Dify 24、Coze 162 采集池；评测按 seed=42 取其中 30 个 Coze 为底版），来源与许可见 [`real_samples/SOURCES.md`](real_samples/SOURCES.md)；注入方式见 `defect_injector.py`，逐条检测见网页「样本与检测过程」（`/api/samples`）。
+
+按类命中率（严格）：abnormal_loop 100% · broken_message 99.0% · isolated_node 100% ·
+missing_branch 100% · unreachable_node 100% · variable_constraint 100%（消融口径 0%，
+即该类完全依赖静态类型规则）。按平台：n8n 100% · Coze 100% · Dify 99.2%。
+
+> 口径说明（与上一版相比改了什么，为什么）：
+> 1. **Dify iteration 子画布不再拍平**。迭代体节点带 `iteration_id`，容器到子图入口没有显式边；
+>    旧适配器把它们当顶层节点，子图直接判不可达。现在按内部边还原成 `while.body`（仅线性链，
+>    否则如实告警并保持拍平）。`dify_webrag.yml`、`difyaws_claude3_code_translation.yml` 因此从
+>    误报变为通过。
+> 2. **Dify if-else 按 n 路分支建模**。`sourceHandle` 的 case UUID 原样作为分支标签，
+>    不再降维成 `false`；`difyaws_generate_image_video.yml`、`simple_kimi` 一类多 case 样本的漏检随之消失。
+> 3. **悬空分支按平台语义 = 实例结束**，并入 `P_f` 并写 `implicit_termination` 记录；
+>    `difyaws_apply_guardrails.yml`（官方样例，if 只有 true 边）因此不再算缺陷。
+>    需要 WF-net 严格读法时用 `VERIFLOW_STRICT_BRANCH=1`，此时该类以 `missing_branch` 呈现。
+> 4. **注入器的 missing_branch 改为「摘掉分支子图」**：只删分支边、保留目标子图，缺陷的可观察后果是
+>    子图不可达；按平台语义，单纯删边而不留子图并不构成缺陷。
+> 5. **截断不再输出未证实结论**：状态超限时，依赖可达图的死锁/残留/非终止/从未触发一律抑制，
+>    只报 `analysis_incomplete` 并列出被抑制项；静态可判的结构不可达与类型规则照常上报。
+
+### 干净底版上的报告（1 个真阳性 + 1 个结论不可用）
+
+| 底版 | 报告结论 | 判定 |
+|---|---|---|
+| `difyaws_AgentCore-Memory-1.yml` | 2 条 unreachable_node（`mechanism=no_structural_path`） | **真阳性**：原始 DSL 里 `1759201306129 -> 17592016133500` 是一个没有任何入边的独立组件，任何引擎都跑不到它；不计入误报（`clean_fp_counts.adjusted=0`） |
+| `difyaws_eks_upgrade_planning.yml` | `analysis_incomplete` | 状态空间超过 20000，结论不可用；不算缺陷、不算"通过" |
+
+上一版列出的 5 个误报中，`dify_webrag.yml`、`difyaws_claude3_code_translation.yml`（iteration 拍平）、
+`difyaws_apply_guardrails.yml`（单分支 if）已由语义修正消除；`eks_upgrade_planning` 由"8 deadlock + 8 missing_branch"
+改为只报"结论不可用"。
+
+### 已知的漏检/边界（不隐藏）
+
+- 严格口径 1 例漏检：`broken_message` 注入到 `difyaws_eks_upgrade_planning.yml`（截断底版），
+  状态空间结论被抑制，只能报 `analysis_incomplete`。这是"宁可说不知道"的代价。
+- `variable_constraint` 的检出完全来自静态类型规则（`output_type != input_type`），
+  可达图本身对该类不敏感；消融口径把它去掉了，所以消融 F1 为 88.9%。
+- "消息是否需要应答"仍来自平台适配层的 `pairing` 字段：若适配器把应答型消息标成通知型，
+  该缺陷不会被发现（见 `docs/FORMAL_CORE.md` §5）。
+- Coze 的循环容器（type 28/21）仍按拍平处理（数据集前 30 个 Coze 样本中未出现循环节点），
+  若出现循环体子图，同一套线性链判定逻辑尚未接入。
+- 分支语义、截断纪律、静态不可达的完整说明与两种读法的开关见 `docs/FORMAL_CORE.md` §4.1、§8、§9。
+
+### 网页上的检测清单
+
+`/api/samples` 返回 `checklist`（9 条性质：选项可完成性、正确完成性、无死变迁、终止性、
+分支完整性、消息配对、类型化数据流、结构合法性、截断诚实性），每条写明形式化依据、
+判定方式（`static` / `state_space` / `meta`）与可靠性边界；同一次响应还带
+`by_type`、`by_platform`、`clean_fp`、`clean_fp_counts`、`clean_inconclusive`、`semantics`，
+页面「样本与检测过程」直接渲染这些字段，避免网页与内核口径脱节。
+
+## 复现
+
+```powershell
+python -m unittest discover -s tests -v        # 形式化内核回归（24 例，含两种分支读法）
+python evaluation_strict.py                    # 三口径评估（约 110 s，写 evaluation_strict_report.{json,md}）
+$env:VERIFLOW_STRICT_BRANCH="1"; python evaluation_strict.py   # 严格读法口径（可选）
+python export_report.py                        # 同步到网页用的 full_experiment_report.json
+python precompute_samples.py                   # 重新生成 samples_precomputed.json（95 样本，约 26 s）
+```
 
 ## 已知局限
 
 - variable_constraint（数据域不一致）不自动修复，需人工复核（对应"不修复语义缺陷"边界）。
 - 模板库内置 8 个高频场景；未命中时走通用步骤解析，复杂嵌套结构建议提供更完整的描述。
 - 会话状态存内存（单用户演示），生产需换持久化。
+- 并行分支按 OR-join 处理（与 n8n / Dify 实际执行一致），不是严格 AND-join 的同步语义（见 docs/FORMAL_CORE.md §6）。
+- 状态空间上限 20000 是为 Render 免费实例的内存留出的余量；超限时只报"结论不可用"，不猜测。

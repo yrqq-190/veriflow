@@ -32,8 +32,9 @@ REQUIRED_NODE_FIELDS: Dict[str, List[str]] = {
     # message: sender/receiver 允许缺省（unpaired 消息无对应接收方），
     #          由适配器语义在验证阶段判定 broken-message 候选
     "message": ["id", "type", "name", "sender"],
-    # if: else 键不做必填 —— 缺失即 missing_branch 缺陷，只报告不修复
-    "if":      ["id", "type", "condition", "then"],
+    # if: then / else 都不做必填 —— 分支既可以由嵌套子树表达，也可以由边
+    # （branch 标签）表达；缺 else 在平台语义下是合法的实例终止，不是语法错误
+    "if":      ["id", "type", "condition"],
     "while":   ["id", "type", "condition", "body"],
 }
 
@@ -143,7 +144,7 @@ def validate_structure(workflow: dict) -> dict:
     所有异常原样保留 —— 输出工作流的控制流语义不变。
     """
     anomalies = {
-        "missing_else_branch":    [],
+        "implicit_branch_exit":   [],
         "missing_loop_exit":      [],
         "isolated_nodes":         [],
         "unreachable_from_entry": [],
@@ -166,10 +167,16 @@ def validate_structure(workflow: dict) -> dict:
             outgoing[e["from"]].append(e["to"])
             incoming[e["to"]].append(e["from"])
 
-    # 3a. 缺失 else 分支（含嵌套条件节点）
+    # 3a. 条件节点的隐含出口：既没有嵌套 else，也没有任意一条分支边。
+    #     这是"条件不满足时实例结束"的合法写法，登记为提示而非错误。
     for node in _iter_all_nodes(nodes):
-        if node.get("type") == "if" and "else" not in node:
-            anomalies["missing_else_branch"].append(node["id"])
+        if node.get("type") != "if":
+            continue
+        nid = node["id"]
+        has_else_subtree = isinstance(node.get("else"), (dict, list))
+        has_branch_edge = any(e["from"] == nid and e.get("branch") for e in edges)
+        if not has_else_subtree and not has_branch_edge:
+            anomalies["implicit_branch_exit"].append(nid)
 
     # 3b. 循环无出口：while 无任何出边且未声明结构出口（exit != True）。
     #     嵌套 while 的出口由父结构组合承担，故以其 exit 字段为准。

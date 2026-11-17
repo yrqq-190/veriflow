@@ -34,21 +34,88 @@ def _find_edge(wf: Dict[str, Any], from_: str, branch: Optional[str] = None) -> 
     return None
 
 
+def _degrees(wf: Dict[str, Any]):
+    in_deg = {n["id"]: 0 for n in wf["nodes"]}
+    out_deg = {n["id"]: 0 for n in wf["nodes"]}
+    for e in wf["edges"]:
+        in_deg[e["to"]] = in_deg.get(e["to"], 0) + 1
+        out_deg[e["from"]] = out_deg.get(e["from"], 0) + 1
+    return in_deg, out_deg
+
+
+def _entries(wf: Dict[str, Any]) -> set:
+    in_deg, _ = _degrees(wf)
+    return {nid for nid, d in in_deg.items() if d == 0}
+
+
+def _primary_entry(wf: Dict[str, Any]) -> Optional[str]:
+    """主入口：与建模阶段一致（有显式 start 则用它，否则取字典序最小的人无入边节点）。"""
+    for n in wf["nodes"]:
+        if n.get("type") in ("start", "Start"):
+            return n["id"]
+    cands = sorted(_entries(wf))
+    return cands[0] if cands else None
+
+
+def _reachable(wf: Dict[str, Any]) -> set:
+    outs = {}
+    for e in wf["edges"]:
+        outs.setdefault(e["from"], []).append(e["to"])
+    start = _primary_entry(wf)
+    seen, stack = set(), [start] if start else []
+    while stack:
+        cur = stack.pop()
+        if cur in seen:
+            continue
+        seen.add(cur)
+        stack.extend(outs.get(cur, []))
+    return seen
+
+
+def _insertable_edge(wf: Dict[str, Any]) -> Optional[dict]:
+    """挑一条「两端可达、目标只有这一条入边」的边，用于在流程中部插入结构。"""
+    in_deg, _ = _degrees(wf)
+    reach = _reachable(wf)
+    for e in wf["edges"]:
+        u, v = e["from"], e["to"]
+        if u == v or e.get("branch"):
+            continue
+        if u not in reach or v not in reach:
+            continue
+        if in_deg.get(v, 0) != 1:
+            continue
+        if v in _entries(wf):
+            continue
+        return e
+    return None
+
+
 def inject_missing_branch(wf: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:
-    """删除 if 的 false 边 + 嵌套 else 字段 → 条件为假时无后继"""
+    """删掉一条条件分支的连线，让该分支的整段子图脱离执行路径。
+
+    语义说明：在 n8n / Dify 里「条件不满足且该分支没连边」是合法的实例终止，
+    所以单纯删边、不留子图并不构成可检出缺陷（建模阶段已按平台语义把悬空分支
+    并入 P_f）。真正属于缺陷的是「该分支原本有要做的工作，现在这段工作再也
+    跑不到」——因此这里只删边、保留子图，缺陷的可观察后果是子图节点不可达。
+    """
     w = _clone(wf)
+    indeg, _ = _degrees(w)
+    by_id = {n["id"]: n for n in w["nodes"]}
     for n in w["nodes"]:
         if n.get("type") != "if":
             continue
-        e = _find_edge(w, n["id"], branch="false")
-        if e is not None:
-            w["edges"] = [x for x in w["edges"] if x is not e]
-            n.pop("else", None)
+        outs = [e for e in w["edges"] if e["from"] == n["id"] and e.get("branch")]
+        for e in outs:
+            tgt = e["to"]
+            if tgt not in by_id:
+                continue
+            if indeg.get(tgt, 0) != 1:      # 目标还有其他入边，删了也不会孤立
+                continue
+            w["edges"] = [x for x in w["edges"] if not (x["from"] == e["from"]
+                                                        and x["to"] == tgt
+                                                        and x.get("branch") == e.get("branch"))]
             return w, "missing_branch"
-        if n.get("else") is not None:
-            n.pop("else", None)
-            return w, "missing_branch"
-    raise ValueError("no if node with a false branch edge to remove")
+    raise ValueError("no removable branch edge with a private target subtree")
 
 
 def inject_isolated_node(wf: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:
@@ -85,62 +152,50 @@ def inject_unreachable_node(wf: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:
 
 
 def inject_abnormal_loop(wf: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:
-    """插入 while{exit:false}（无出口循环）到流程中部"""
+    """在一次正常流转的中间插入 while{exit:false}（无出口循环）。
+
+    插入点必须是一条「两端可达、目标唯一入边」的边，否则缺陷会落在不可达区域，
+    评估时只能观察到 unreachable_node，无法检验循环终止性的判定能力。
+    """
     w = _clone(wf)
-    nodes = w["nodes"]
-    if not nodes:
-        return w, "abnormal_loop"
-    # 在第一个非入口 task 前插入无出口 while
-    anchor = None
-    for n in nodes:
-        if n.get("type") == "task" and not n.get("is_entry") and not n.get("is_alt_entry"):
-            anchor = n["id"]
-            break
-    if anchor is None:
-        anchor = nodes[-1]["id"]
+    e = _insertable_edge(w)
+    if e is None:
+        raise ValueError("no insertable interior edge for abnormal loop")
     loop_id = "loop_injected_1"
-    # 断开 anchor 的入边，插入 loop → anchor
+    u, v = e["from"], e["to"]
     w["nodes"].append({"id": loop_id, "type": "while", "name": "injected loop",
-                       "exit": False, "body": None})
-    for e in list(w["edges"]):
-        if e["to"] == anchor:
-            w["edges"].remove(e)
-            w["edges"].append({"from": e["from"], "to": loop_id})
-    w["edges"].append({"from": loop_id, "to": anchor})
+                       "condition": "loop", "exit": False, "body": None})
+    w["edges"] = [x for x in w["edges"] if not (x["from"] == u and x["to"] == v)]
+    w["edges"].append({"from": u, "to": loop_id})
+    w["edges"].append({"from": loop_id, "to": v})
     return w, "abnormal_loop"
 
 
 def inject_broken_message(wf: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:
     """消息发送后无配对接收 → broken-message 候选。
-    优先把已有 n8n 消息节点改为 unpaired；若工作流无消息节点，则插入一个
-    有入边/出边但 pairing=unpaired 的 n8n 消息节点（图检查器只看有无出边，
-    检测不到；JCPN 检测配对语义，可检出——体现两者差异）。"""
+
+    优先把已有 n8n 消息节点改为 unpaired；否则在一条可执行的内部边上插入
+    `pairing=unpaired` 的消息节点（有入边有出边，图检查器看不到问题）。
+    """
     w = _clone(wf)
-    # 1) 已有 n8n 消息节点：直接改 unpaired
     for n in w["nodes"]:
         if n.get("type") == "message" and n.get("platform") == "n8n":
             n["pairing"] = "unpaired"
+            n.pop("receiver", None)
             return w, "broken_message"
-    # 2) 无消息节点：找一个有出边的中间 task，在其后插入 unpaired 消息节点
-    out_edges = {}
-    for e in w["edges"]:
-        out_edges.setdefault(e["from"], []).append(e)
-    anchor_edge = None
-    for n in w["nodes"]:
-        if n.get("type") == "task" and not n.get("is_entry") and n["id"] in out_edges:
-            anchor_edge = out_edges[n["id"]][0]
-            break
-    if anchor_edge is None:
-        raise ValueError("no suitable edge to insert broken message")
+
+    e = _insertable_edge(w)
+    if e is None:
+        raise ValueError("no insertable interior edge for broken message")
     msg_id = "msg_injected_1"
+    u, v = e["from"], e["to"]
     w["nodes"].append({
         "id": msg_id, "type": "message", "name": "injected send (no receive)",
         "sender": "system", "pairing": "unpaired",
         "platform": "n8n", "direction": "out"})
-    nxt = anchor_edge["to"]
-    w["edges"] = [e for e in w["edges"] if e is not anchor_edge]
-    w["edges"].append({"from": anchor_edge["from"], "to": msg_id})
-    w["edges"].append({"from": msg_id, "to": nxt})
+    w["edges"] = [x for x in w["edges"] if not (x["from"] == u and x["to"] == v)]
+    w["edges"].append({"from": u, "to": msg_id})
+    w["edges"].append({"from": msg_id, "to": v})
     return w, "broken_message"
 
 

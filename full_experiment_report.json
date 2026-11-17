@@ -1,0 +1,170 @@
+{
+  "metric_version": "strict_type_and_localization",
+  "metric_note": "TP 需同时满足：缺陷类型落在注入类别，且定位命中被注入节点；松口径与消融结果见 loose / ablation_state_space；截断底版上的状态空间结论按 analysis_incomplete 处理，不算命中",
+  "n_bases": 95,
+  "n_samples": 555,
+  "dataset": {
+    "clean": 95,
+    "injected": 460,
+    "truncated_clean": 1,
+    "max_states": 20000
+  },
+  "global": {
+    "jcpn": {
+      "tp": 459,
+      "fp": 1,
+      "fn": 1,
+      "tn": 94,
+      "precision": 0.9978,
+      "recall": 0.9978,
+      "f1": 0.9978,
+      "accuracy": 0.9964
+    },
+    "graph": {
+      "tp": 375,
+      "fp": 5,
+      "fn": 85,
+      "tn": 90,
+      "precision": 0.9868,
+      "recall": 0.8152,
+      "f1": 0.8929,
+      "accuracy": 0.8378
+    },
+    "schema": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 460,
+      "tn": 95,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "accuracy": 0.1712
+    }
+  },
+  "global_loose": {
+    "jcpn": {
+      "tp": 460,
+      "fp": 1,
+      "fn": 0,
+      "tn": 94,
+      "precision": 0.9978,
+      "recall": 1.0,
+      "f1": 0.9989,
+      "accuracy": 0.9982
+    }
+  },
+  "ablation_state_space": {
+    "jcpn": {
+      "tp": 369,
+      "fp": 1,
+      "fn": 91,
+      "tn": 94,
+      "precision": 0.9973,
+      "recall": 0.8022,
+      "f1": 0.8892,
+      "accuracy": 0.8342
+    }
+  },
+  "localization": {
+    "top1_accuracy": 0.9978,
+    "correct": 459,
+    "total": 460,
+    "metric": "type-consistent finding must point at an injected node"
+  },
+  "by_type": {
+    "missing_branch": {
+      "n": 10,
+      "strict_hit_rate": 1.0,
+      "loose_hit_rate": 1.0,
+      "ablation_hit_rate": 1.0
+    },
+    "isolated_node": {
+      "n": 75,
+      "strict_hit_rate": 1.0,
+      "loose_hit_rate": 1.0,
+      "ablation_hit_rate": 1.0
+    },
+    "unreachable_node": {
+      "n": 95,
+      "strict_hit_rate": 1.0,
+      "loose_hit_rate": 1.0,
+      "ablation_hit_rate": 1.0
+    },
+    "abnormal_loop": {
+      "n": 95,
+      "strict_hit_rate": 1.0,
+      "loose_hit_rate": 1.0,
+      "ablation_hit_rate": 1.0
+    },
+    "broken_message": {
+      "n": 95,
+      "strict_hit_rate": 0.9895,
+      "loose_hit_rate": 1.0,
+      "ablation_hit_rate": 0.9895
+    },
+    "variable_constraint": {
+      "n": 90,
+      "strict_hit_rate": 1.0,
+      "loose_hit_rate": 1.0,
+      "ablation_hit_rate": 0.0
+    }
+  },
+  "clean_false_positives": [
+    {
+      "id": "difyaws_AgentCore-Memory-1.yml",
+      "types": [
+        "unreachable_node",
+        "unreachable_node"
+      ],
+      "known_source_defect": "原始 Dify DSL 中 1759201306129 -> 17592016133500 是一个没有任何入边的独立组件，在任何执行引擎下都不可能运行；报告 unreachable_node 属于真阳性，不是误报。"
+    }
+  ],
+  "clean_fp_counts": {
+    "raw": 1,
+    "known_source_defect": 1,
+    "adjusted": 0
+  },
+  "clean_inconclusive": [
+    {
+      "id": "difyaws_eks_upgrade_planning.yml"
+    }
+  ],
+  "by_platform": {
+    "dify": {
+      "n": 126,
+      "strict": 125,
+      "rate": 0.9921
+    },
+    "n8n": {
+      "n": 184,
+      "strict": 184,
+      "rate": 1.0
+    },
+    "coze": {
+      "n": 150,
+      "strict": 150,
+      "rate": 1.0
+    }
+  },
+  "strict_misses": [
+    {
+      "defect": "broken_message",
+      "base": "difyaws_eks_upgrade_planning.yml",
+      "types": [
+        "analysis_incomplete"
+      ],
+      "touched": [
+        "1738829114561",
+        "1738829154148",
+        "msg_injected_1"
+      ],
+      "sources": []
+    }
+  ],
+  "semantics": {
+    "branch_termination": "implicit_branch_termination: 条件分支未连边按平台引擎语义视为实例结束（并入 P_f）；VERIFLOW_STRICT_BRANCH=1 可切回WF-net 严格读法",
+    "truncation": "bounded exploration: 状态数超 max_states 时，依赖可达图的性质（死锁/非终止/残留/从未触发）一律降级为未证实，只报 analysis_incomplete",
+    "unreachable": "不可达先做 P→T→P 结构不动点判定（与状态空间无关），完整可达图时才补'结构可达却从未触发'"
+  },
+  "runtime_s": 215.54
+}

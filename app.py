@@ -202,8 +202,42 @@ def api_samples():
             "JSON Schema": {"precision": _g.get("schema",{}).get("precision",0), "recall": _g.get("schema",{}).get("recall",0), "f1": _g.get("schema",{}).get("f1",0), "accuracy": _g.get("schema",{}).get("accuracy",0)},
             "Graph static": {"precision": _g.get("graph",{}).get("precision",0), "recall": _g.get("graph",{}).get("recall",0), "f1": _g.get("graph",{}).get("f1",0), "accuracy": _g.get("graph",{}).get("accuracy",0)},
             "JCPN": {"precision": _g.get("jcpn",{}).get("precision",0), "recall": _g.get("jcpn",{}).get("recall",0), "f1": _g.get("jcpn",{}).get("f1",0), "accuracy": _g.get("jcpn",{}).get("accuracy",0)},
-        }, "dataset": {"n_bases": _fe.get("n_bases",0), "n_samples": _fe.get("n_samples",0)}}
-    return jsonify({"samples": samples, "elapsed_s": elapsed, "evaluation": eval_data.get("results", {}), "by_type": [], "dataset": eval_data.get("dataset", {})})
+        },
+            "dataset": {"n_bases": _fe.get("n_bases",0), "n_samples": _fe.get("n_samples",0)},
+            "by_type": _fe.get("by_type", {}),
+            "metric_version": _fe.get("metric_version", ""),
+            "metric_note": _fe.get("metric_note", ""),
+            "clean_false_positives": _fe.get("clean_false_positives", []),
+            "clean_fp_counts": _fe.get("clean_fp_counts", {}),
+            "clean_inconclusive": _fe.get("clean_inconclusive", []),
+            "by_platform": _fe.get("by_platform", {}),
+            "semantics": _fe.get("semantics", {}),
+        }
+    by_type = eval_data.get("by_type", {})
+    return jsonify({
+        "samples": samples,
+        "elapsed_s": elapsed,
+        "evaluation": eval_data.get("results", {}),
+        "by_type": by_type,
+        "dataset": eval_data.get("dataset", {}),
+        "metric_version": eval_data.get("metric_version", ""),
+        "metric_note": eval_data.get("metric_note", ""),
+        "clean_fp": eval_data.get("clean_false_positives", []),
+        "clean_fp_counts": eval_data.get("clean_fp_counts", {}),
+        "clean_inconclusive": eval_data.get("clean_inconclusive", []),
+        "by_platform": eval_data.get("by_platform", {}),
+        "semantics": eval_data.get("semantics", {}),
+        "checklist": _checklist_payload(),
+    })
+
+
+def _checklist_payload() -> List[Dict[str, Any]]:
+    """检测清单（形式化性质 + 判定方式 + 可靠性边界）。"""
+    try:
+        from verification import CHECKLIST
+        return CHECKLIST
+    except Exception:
+        return []
 
 
 @app.post("/api/generate")
