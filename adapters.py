@@ -220,9 +220,10 @@ def _dify_guard(node_data: Dict[str, Any]) -> str:
 def parse_dify(dsl_text: str, source: str = "") -> Dict[str, Any]:
     """
     Dify DSL（YAML）→ 标准 JSON。
-    graph.edges 按 sourceHandle（true/false/source）表达分支；
-    iteration 节点：映射为 while{exit:true}，body 留空（Dify 迭代体内节点
-    不在该节点下嵌套，标注局限，见 balanced_experiment_report.md）。
+    graph.edges 按 sourceHandle 表达分支：true / false / case UUID 原样保留为
+    分支标签（n 路分支，不降维）；iteration 节点：映射为 while，并把带
+    iteration_id 的子画布收进 body（仅当子图是线性链，否则告警并保持拍平，
+    见 _nest_dify_iterations）。
     """
     if yaml is None:
         raise RuntimeError("pyyaml is required to parse Dify DSL")
