@@ -228,9 +228,17 @@
     return String(t).replace(/\{/g, "(").replace(/\}/g, ")").replace(/\|/g, "/");
   }
 
-  function renderWithMermaid(container, definition, emptyMsg) {
-    if (!mermaidReady || !definition) {
+  function renderWithMermaid(container, definition, emptyMsg, fallbackHtml) {
+    if (!definition) {
       container.innerHTML = "<p class='empty'>" + esc(emptyMsg) + "</p>";
+      return;
+    }
+    if (!mermaidReady) {
+      // 渲染库未加载（离线/CDN 被拦）时给出可读的结构列表，而不是谎称"没有数据"
+      container.innerHTML = fallbackHtml ||
+        ("<p class='empty'>" + esc(lang === "en"
+          ? "Graph renderer not loaded (offline). JSON and verification report are still available."
+          : "图渲染库未加载（离线或被拦截），JSON 与验证报告仍可查看。") + "</p>");
       return;
     }
     // 串行队列：避免 mermaid.render 并发冲突（工作流图 + CPN 图同时渲染）
@@ -251,6 +259,29 @@
         });
       });
     });
+  }
+
+  function graphFallback(wf) {
+    if (!wf || !wf.nodes || !wf.nodes.length) return null;
+    var lines = [];
+    wf.nodes.forEach(function (n) {
+      lines.push("[" + (n.type || "?") + "] " + (n.name || n.id));
+    });
+    (wf.edges || []).forEach(function (e) {
+      lines.push(e.from + " -> " + e.to + (e.branch ? " (" + e.branch + ")" : ""));
+    });
+    return "<pre class='graph-fallback'>" + esc(lines.join("\n")) + "</pre>";
+  }
+
+  function cpnFallback(digest) {
+    if (!digest || !digest.places || !digest.places.length) return null;
+    var lines = [];
+    lines.push("P: " + digest.places.map(function (p) { return p.id; }).join(", "));
+    lines.push("T: " + digest.transitions.map(function (x) { return x.id; }).join(", "));
+    lines.push("A: " + digest.arcs.map(function (a) {
+      return a["from"] + " -> " + a["to"] + (a.expr && a.expr !== "1`x" ? " [" + a.expr + "]" : "");
+    }).join(" | "));
+    return "<pre class='graph-fallback'>" + esc(lines.join("\n")) + "</pre>";
   }
 
   function workflowMermaid(wf) {
@@ -314,7 +345,7 @@
   }
 
   function renderGraph(wf) {
-    renderWithMermaid(graphSvg, workflowMermaid(wf), t("graphEmpty"));
+    renderWithMermaid(graphSvg, workflowMermaid(wf), t("graphEmpty"), graphFallback(wf));
   }
 
   function renderCpn(digest) {
@@ -325,7 +356,7 @@
       return;
     }
     cpnStats.textContent = "|P|=" + digest["|P|"] + "  |T|=" + digest["|T|"] + "  |A|=" + digest["|A|"] + "  μ=" + digest.mu.length;
-    renderWithMermaid(cpnGraph, cpnMermaid(digest), t("cpnEmpty"));
+    renderWithMermaid(cpnGraph, cpnMermaid(digest), t("cpnEmpty"), cpnFallback(digest));
     // provenance μ 列表（源节点 → JCPN 元素）
     var html = "<div class='mu-head'>Provenance μ · 源节点 → JCPN 元素</div>";
     digest.mu.forEach(function (m) {
@@ -407,13 +438,17 @@
   function addClarifyBlock(questions) {
     var html = "<p><b>" + esc(t("clarifyTitle")) + "</b></p>";
     questions.forEach(function (q) {
+      var qtext = (lang === "en" && q.question_en) ? q.question_en : q.question;
+      var opts = (q.options && q.options.length) ? q.options : null;
+      var optsEn = (lang === "en" && q.options_en) ? q.options_en : null;
       html += '<div class="report-card"><span>?</span><div><h3>' + esc(q.id) + "</h3><p>" +
-        esc(q.question) + "</p>";
-      if (q.options && q.options.length) {
+        esc(qtext) + "</p>";
+      if (opts) {
         html += '<div class="clarify-chips">';
-        q.options.forEach(function (o) {
+        opts.forEach(function (o, i) {
+          var label = (optsEn && optsEn[i]) ? optsEn[i] : o;
           html += '<button type="button" class="chip" data-q="' + esc(q.id) +
-            '" data-a="' + esc(o) + '">' + esc(o) + "</button>";
+            '" data-a="' + esc(o) + '">' + esc(label) + "</button>";
         });
         html += "</div>";
       }
@@ -439,12 +474,18 @@
 
   function handlePipelineResult(res, typing) {
     typing.remove();
+    if (res.status === "error") {
+      addMessage("assistant", "<p class='badge'>" + esc((res.error || "error") +
+        (res.message ? ": " + res.message : "")) + "</p>");
+      renderSteps(res.steps || null);
+      return;
+    }
     renderSteps(res.steps || null);
     if (res.status === "awaiting_clarification") {
       awaitingClarify = true;
       current = res;
       addMessage("assistant", addClarifyBlock(res.questions));
-      addMessage("assistant", "<p>" + esc(lang === "en" ? "Type your answers above (e.g. 平台：n8n), then press Send." : "在输入框回答上面的问题（例如：平台：n8n），然后回车发送。") + "</p>");
+      addMessage("assistant", "<p>" + esc(lang === "en" ? "Pick an option above, or type your answer and press Send." : "点选上面的选项，或在输入框输入回答后回车发送。") + "</p>");
       return;
     }
     current = res;

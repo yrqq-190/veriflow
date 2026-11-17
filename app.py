@@ -33,7 +33,8 @@ BASE = os.path.dirname(os.path.abspath(__file__))
 WEBUI = os.path.join(BASE, "webui")
 
 app = Flask(__name__, static_folder=WEBUI, static_url_path="")
-app.secret_key = "veriflow-demo-secret"
+app.secret_key = os.environ.get("VERIFLOW_SECRET") or os.urandom(16).hex()
+app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0  # 部署后前端立即生效
 
 # 内存会话（单用户演示）；生产可换 redis/文件
 SESSIONS: Dict[str, Dict[str, Any]] = {}
@@ -58,6 +59,25 @@ def _sid() -> str:
     if "_sid" not in session:
         session["_sid"] = os.urandom(8).hex()
     return session["_sid"]
+
+
+MAX_SESSIONS = int(os.environ.get("VERIFLOW_MAX_SESSIONS", "200"))
+
+
+def _store_session(result: Dict[str, Any]) -> None:
+    """写入会话，并把总量限制在 MAX_SESSIONS。
+
+    Render 免费实例只有 512MB，演示站被反复访问时会话表会一直增长；
+    这里按最近使用顺序淘汰最旧的会话（重新插入以刷新顺序）。
+    """
+    sid = _sid()
+    SESSIONS.pop(sid, None)
+    SESSIONS[sid] = result
+    overflow = len(SESSIONS) - MAX_SESSIONS
+    if overflow > 0:
+        for key in list(SESSIONS.keys())[:overflow]:
+            if key != sid:
+                SESSIONS.pop(key, None)
 
 
 def _clean_verify(v: Dict[str, Any]) -> Dict[str, Any]:
@@ -214,26 +234,44 @@ _SAMPLES_CACHE: Dict[str, Any] = {}
 
 @app.route("/api/samples")
 def api_samples():
-    """真实样本清单 + 逐样本检测结果 + 评估对比（读预计算 JSON，不实时跑，避免 Render OOM）。"""
+    """真实样本清单 + 逐样本检测结果 + 评估对比（读预计算 JSON，不实时跑，避免 Render OOM）。
+
+    结果按文件 mtime 缓存：这两个文件合计数百 KB，每次请求重读既慢又白耗 IO。
+    """
+    return jsonify(_samples_payload())
+
+
+_SAMPLES_CACHE: Dict[str, Any] = {"sig": None, "payload": None}
+
+
+def _samples_payload() -> Dict[str, Any]:
     base = os.path.dirname(os.path.abspath(__file__))
     pre_path = os.path.join(base, "samples_precomputed.json")
     eval_path = os.path.join(base, "full_experiment_report.json")
+    sig = tuple((os.path.getmtime(x) if os.path.exists(x) else 0.0)
+                for x in (pre_path, eval_path))
+    cached = _SAMPLES_CACHE.get("payload")
+    if cached is not None and _SAMPLES_CACHE.get("sig") == sig:
+        return cached
+
     samples = []
     elapsed = 0.0
     if os.path.exists(pre_path):
-        _d = json.load(open(pre_path, encoding="utf-8"))
+        with open(pre_path, encoding="utf-8") as fh:
+            _d = json.load(fh)
         samples = _d.get("samples", [])
         elapsed = _d.get("elapsed_s", 0.0)
     eval_data = {}
     if os.path.exists(eval_path):
-        _fe = json.load(open(eval_path, encoding="utf-8"))
+        with open(eval_path, encoding="utf-8") as fh:
+            _fe = json.load(fh)
         _g = _fe.get("global", {})
         eval_data = {"results": {
-            "JSON Schema": {"precision": _g.get("schema",{}).get("precision",0), "recall": _g.get("schema",{}).get("recall",0), "f1": _g.get("schema",{}).get("f1",0), "accuracy": _g.get("schema",{}).get("accuracy",0)},
-            "Graph static": {"precision": _g.get("graph",{}).get("precision",0), "recall": _g.get("graph",{}).get("recall",0), "f1": _g.get("graph",{}).get("f1",0), "accuracy": _g.get("graph",{}).get("accuracy",0)},
-            "JCPN": {"precision": _g.get("jcpn",{}).get("precision",0), "recall": _g.get("jcpn",{}).get("recall",0), "f1": _g.get("jcpn",{}).get("f1",0), "accuracy": _g.get("jcpn",{}).get("accuracy",0)},
+            "JSON Schema": {"precision": _g.get("schema", {}).get("precision", 0), "recall": _g.get("schema", {}).get("recall", 0), "f1": _g.get("schema", {}).get("f1", 0), "accuracy": _g.get("schema", {}).get("accuracy", 0)},
+            "Graph static": {"precision": _g.get("graph", {}).get("precision", 0), "recall": _g.get("graph", {}).get("recall", 0), "f1": _g.get("graph", {}).get("f1", 0), "accuracy": _g.get("graph", {}).get("accuracy", 0)},
+            "JCPN": {"precision": _g.get("jcpn", {}).get("precision", 0), "recall": _g.get("jcpn", {}).get("recall", 0), "f1": _g.get("jcpn", {}).get("f1", 0), "accuracy": _g.get("jcpn", {}).get("accuracy", 0)},
         },
-            "dataset": {"n_bases": _fe.get("n_bases",0), "n_samples": _fe.get("n_samples",0)},
+            "dataset": {"n_bases": _fe.get("n_bases", 0), "n_samples": _fe.get("n_samples", 0)},
             "by_type": _fe.get("by_type", {}),
             "metric_version": _fe.get("metric_version", ""),
             "metric_note": _fe.get("metric_note", ""),
@@ -243,12 +281,11 @@ def api_samples():
             "by_platform": _fe.get("by_platform", {}),
             "semantics": _fe.get("semantics", {}),
         }
-    by_type = eval_data.get("by_type", {})
-    return jsonify({
+    payload = {
         "samples": samples,
         "elapsed_s": elapsed,
         "evaluation": eval_data.get("results", {}),
-        "by_type": by_type,
+        "by_type": eval_data.get("by_type", {}),
         "dataset": eval_data.get("dataset", {}),
         "metric_version": eval_data.get("metric_version", ""),
         "metric_note": eval_data.get("metric_note", ""),
@@ -258,7 +295,10 @@ def api_samples():
         "by_platform": eval_data.get("by_platform", {}),
         "semantics": eval_data.get("semantics", {}),
         "checklist": _checklist_payload(),
-    })
+    }
+    _SAMPLES_CACHE["sig"] = sig
+    _SAMPLES_CACHE["payload"] = payload
+    return payload
 
 
 def _checklist_payload() -> List[Dict[str, Any]]:
@@ -274,9 +314,14 @@ def _checklist_payload() -> List[Dict[str, Any]]:
 def api_generate():
     data = request.get_json(force=True, silent=True) or {}
     text = data.get("text", "")
-    with _lock:
+    try:
+        # 计算放在锁外：LLM 最长 45s，不能把其他请求一起堵住
         result = run_pipeline(text, {}, [])
-        SESSIONS[_sid()] = result
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"status": "error", "error": "pipeline_error",
+                        "message": f"{type(e).__name__}: {e}", "steps": []}), 500
+    with _lock:
+        _store_session(result)
     return jsonify(result)
 
 
@@ -294,17 +339,22 @@ def api_clarify():
         st = SESSIONS.get(_sid()) or {}
         slots = dict(st.get("slots") or {})
         asked_list = list(st.get("asked") or [])
-        for qid, ans in answers.items():
-            key = SLOT_MAP.get(qid)
-            if key and isinstance(ans, str) and ans.strip():
-                slots[key] = ans.strip()
-            if qid not in asked_list:
-                asked_list.append(qid)
-        if not asked_list:
-            # 没有会话记录时，至少把本次回答的 id 计入预算，保证不会原地重问
-            asked_list = [q for q in answers.keys()]
+    for qid, ans in answers.items():
+        key = SLOT_MAP.get(qid)
+        if key and isinstance(ans, str) and ans.strip():
+            slots[key] = ans.strip()
+        if qid not in asked_list:
+            asked_list.append(qid)
+    if not asked_list:
+        # 没有会话记录时，至少把本次回答的 id 计入预算，保证不会原地重问
+        asked_list = [q for q in answers.keys()]
+    try:
         result = run_pipeline(text, slots, asked_list)
-        SESSIONS[_sid()] = result
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"status": "error", "error": "pipeline_error",
+                        "message": f"{type(e).__name__}: {e}", "steps": []}), 500
+    with _lock:
+        _store_session(result)
     return jsonify(result)
 
 

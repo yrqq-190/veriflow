@@ -44,6 +44,27 @@ python app.py
 前端把 `options` 渲染成可点选芯片，点选即回答；自由文本回答仍可用，作用于当前
 第一个未答问题。
 
+### 健壮性与资源边界
+
+演示站跑在 Render 免费实例（512MB、单进程），这一层失败模式都要显式处理：
+
+- **LLM 输出先校验再采用**：节点类型、id 唯一性、`if`/`while` 是否带条件、边是否悬空
+  都检查；不通过则抛错并回退规则引擎，阶段记 `llm_fallback(<原因>)`，绝不把坏
+  JSON 交给 `preprocess`。
+- **管道异常有边界**：生成/澄清过程中的任何异常返回
+  `{status: "error", error: "pipeline_error", message}`（HTTP 500），不再暴露裸 traceback。
+- **会话表限量**：`VERIFLOW_MAX_SESSIONS`（默认 200）按最近使用淘汰，避免长时间运行后内存单调增长。
+- **样本面板缓存**：`/api/samples` 的两个大 JSON 按文件 mtime 缓存，首次读盘、后续内存直出。
+- **计算不持锁**：锁只保护会话读写；LLM 最长 45s 的等待不会阻塞其他请求。
+- **前端降级**：后端返回错误直接显示；mermaid 未加载（离线/CDN 被拦）时渲染
+  节点/边（库所/变迁）结构列表，而不是显示"没有数据"。
+- **双语**：EN 模式下澄清问题与选项标签走英文文案，但点选提交的仍是规范答案
+  （中文模板名），不会因显示语言改变解析结果。
+- **会话密钥**：`VERIFLOW_SECRET` 可覆盖，默认每次启动随机生成（内存会话本来也不跨重启）。
+
+对应回归：`tests/test_formal_core.py`（24）、`tests/test_clarification.py`（7）、
+`tests/test_robustness.py`（9），全部 `python <file>` 直接运行，无需 pytest。
+
 ## API
 
 | 端点 | 说明 |

@@ -151,6 +151,16 @@ TEMPLATES: Dict[str, Dict[str, Any]] = {
     },
 }
 
+TEMPLATE_EN = {
+    "leave": "Student leave approval",
+    "order": "Order exception handling",
+    "content": "Content publishing approval",
+    "report": "Daily report generation",
+    "ticket": "Ticket handling",
+    "notify": "Customer message notification",
+    "customs": "Integrated customs clearance",
+}
+
 # 通用解析：步骤 / 条件 / 循环 / 消息 的启发式切分
 _STEP_SPLIT = re.compile(r"[，。；;,.、\n]|(?:首先|然后|接着|再|最后|同时|之后|随后)")
 _IF_RE = re.compile(r"如果|若|假如|当.*?(?:时|后)|除非|要是")
@@ -245,40 +255,52 @@ def clarify_questions(text: str, slots: Optional[Dict[str, Any]] = None,
     slots = slots or {}
     asked_set = set(asked or ())
     intent = detect_intent(text, slots)
-    qs: List[Dict[str, Any]] = []
+    topic_options = [TEMPLATES[k]["name"] for k in TEMPLATES]
+    topic_options_en = [TEMPLATE_EN[k] for k in TEMPLATES]
+    # 同一轮内按 id 去重：一个 id 只对应一个问法（vague 与自生成两条规则可能同时命中）
+    cand: Dict[str, Dict[str, Any]] = {}
     if (intent["template_id"] is None and not intent.get("topic")
             and "no_action" in intent["ambiguity"]
             and not slots.get("action") and "q_action" not in asked_set):
-        qs.append({
+        cand["q_action"] = {
             "id": "q_action", "phase": "requirements_clarification",
             "question": "请补充工作流要完成的动作（如：提交申请→审批→通知）",
-            "options": None})
+            "question_en": "Which actions should the workflow perform? (e.g. submit → approve → notify)",
+            "options": None, "options_en": None}
     if (intent["template_id"] is None and not intent.get("topic")
             and "too_vague" in intent["ambiguity"] and "q_topic" not in asked_set):
-        qs.append({
+        cand["q_topic"] = {
             "id": "q_topic", "phase": "requirements_clarification",
             "question": "请补充工作流主题（如：请假审批 / 订单处理 / 内容发布 / 数据日报 / 工单处理 / 消息通知）",
-            "options": [TEMPLATES[k]["name"] for k in TEMPLATES]})
+            "question_en": "Which scenario should the workflow model? (e.g. leave approval / order handling / daily report)",
+            "options": topic_options, "options_en": topic_options_en}
     if (intent.get("self_generate") and "need_topic" in intent["ambiguity"]
             and "q_topic" not in asked_set):
-        qs.append({
+        # 自生成场景的问法更具体，覆盖 vague 版本（同一个 id 只保留一条）
+        cand["q_topic"] = {
             "id": "q_topic", "phase": "requirements_clarification",
             "question": "你想让我生成哪个场景的工作流？我会根据主题自动补齐完整步骤并验证（如：海关一体化通关 / 请假审批 / 订单处理 / 数据日报）",
-            "options": [TEMPLATES[k]["name"] for k in TEMPLATES]})
+            "question_en": "Which scenario should I build? I will fill in the steps from that topic and verify them (e.g. customs clearance / leave approval / order handling / daily report).",
+            "options": topic_options, "options_en": topic_options_en}
     if (intent["has_cond"] and not _ELSE_RE.search(text)
             and not intent["template_id"] and not slots.get("else")
             and "q_else" not in asked_set):
-        qs.append({
+        cand["q_else"] = {
             "id": "q_else", "phase": "requirements_clarification",
             "question": "条件不满足时如何处理？系统将默认生成 else 分支连接正常终点（missing-branch 缺陷修复策略）。",
-            "options": ["默认生成 else", "不需要 else 分支"]})
+            "question_en": "What happens when the condition is false? A default else branch to the normal end is generated (the missing-branch repair strategy).",
+            "options": ["默认生成 else", "不需要 else 分支"],
+            "options_en": ["Generate a default else branch", "No else branch needed"]}
     if (intent["has_msg"] and intent["template_id"] is None
             and not slots.get("msg_platform") and "q_msg_platform" not in asked_set):
-        qs.append({
+        cand["q_msg_platform"] = {
             "id": "q_msg_platform", "phase": "requirements_clarification",
             "question": "消息通过哪个平台发送？（影响适配器语义：n8n/Dify/Coze）",
-            "options": ["n8n", "Dify", "Coze", "内部系统"]})
-    return qs
+            "question_en": "Which platform sends the message? (affects adapter semantics: n8n / Dify / Coze)",
+            "options": ["n8n", "Dify", "Coze", "内部系统"],
+            "options_en": ["n8n", "Dify", "Coze", "Internal system"]}
+    order = ["q_action", "q_topic", "q_else", "q_msg_platform"]
+    return [cand[k] for k in order if k in cand]
 
 
 def _make_id(i: int) -> str:
@@ -343,11 +365,87 @@ def build_topic_skeleton(intent: Dict[str, Any], text: str) -> Dict[str, Any]:
         "source": "nl2json_topic_skeleton",
         "assumptions": [
             "主题由用户澄清阶段给出，未命中内置模板",
-            "步骤为最小骨架（接收/处理/回复），具体业务动作需要用户补充",
+            "步骤为最小骨架（受理/执行/归档），具体业务动作需要用户补充",
         ],
         "nodes": nodes,
         "edges": edges,
     }
+
+
+_ALLOWED_NODE_TYPES = {"task", "message", "if", "while"}
+
+
+def _node_id_set(nodes: List[Any], edges: List[Any]) -> set:
+    """收集合法节点 id（含 if/while 内联的 then/else/body 子节点）。
+
+    LLM 可能把分支子节点写成内联对象而不在 nodes 里重复列出；只要边引用的 id
+    能在任何一处找到，就认为引用是完整的。
+    """
+    ids: set = set()
+
+    def walk(node: Any) -> None:
+        if not isinstance(node, dict):
+            return
+        nid = node.get("id")
+        if isinstance(nid, str) and nid:
+            ids.add(nid)
+        for key in ("then", "else", "body"):
+            walk(node.get(key))
+
+    for n in nodes:
+        walk(n)
+    return ids
+
+
+def _validate_llm_workflow(wf: Any) -> None:
+    """校验 LLM 输出是否可以安全送入 preprocess → JCPN。
+
+    只做必要约束（类型合法、id 唯一、if/while 带条件、边不悬空），
+    不通过就抛 ValueError，由调用方回退规则引擎——错误不会被静默吞掉。
+    """
+    if not isinstance(wf, dict):
+        raise ValueError("llm_not_object")
+    nodes = wf.get("nodes")
+    if not isinstance(nodes, list) or not nodes:
+        raise ValueError("llm_nodes_empty")
+    edges = wf.get("edges") or []
+    if not isinstance(edges, list):
+        raise ValueError("llm_edges_not_list")
+    seen: set = set()
+
+    def check(node: Any) -> None:
+        if not isinstance(node, dict):
+            raise ValueError("llm_node_not_object")
+        nid = node.get("id")
+        ntype = node.get("type")
+        if not isinstance(nid, str) or not nid:
+            raise ValueError("llm_node_without_id")
+        if nid in seen:
+            raise ValueError(f"llm_duplicate_node_id:{nid}")
+        seen.add(nid)
+        if ntype not in _ALLOWED_NODE_TYPES:
+            raise ValueError(f"llm_bad_node_type:{ntype}")
+        if ntype == "if":
+            if not str(node.get("condition") or "").strip():
+                raise ValueError(f"llm_if_without_condition:{nid}")
+            for key in ("then", "else"):
+                if node.get(key) is not None:
+                    check(node[key])
+        if ntype == "while":
+            if not str(node.get("condition") or "").strip():
+                raise ValueError(f"llm_while_without_condition:{nid}")
+            if not isinstance(node.get("body"), dict):
+                raise ValueError(f"llm_while_without_body:{nid}")
+
+    for n in nodes:
+        check(n)
+    ids = _node_id_set(nodes, edges)
+    for e in edges:
+        if not isinstance(e, dict):
+            raise ValueError("llm_edge_not_object")
+        src, dst = e.get("from"), e.get("to")
+        if src not in ids or dst not in ids:
+            raise ValueError(f"llm_edge_dangling:{src}->{dst}")
 
 
 def nl2json(text: str, slots: Optional[Dict[str, Any]] = None,
@@ -376,7 +474,9 @@ def nl2json(text: str, slots: Optional[Dict[str, Any]] = None,
             llm_text = parse_text
             if intent.get("topic"):
                 llm_text = f"{parse_text}（工作流主题：{intent['topic']}）"
-            wf = llm_json(llm_text)
+            candidate = llm_json(llm_text)
+            _validate_llm_workflow(candidate)   # 先校验，通过后才采用
+            wf = candidate
             stage = "llm"
         except Exception as e:  # noqa: BLE001
             # LLM 失败，回退规则引擎；把原因记在 stage 里方便调试
